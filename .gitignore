@@ -19,6 +19,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 next-env.d.ts
+*.tsbuildinfo
 
 # supabase CLI local state
 /supabase/.branches
