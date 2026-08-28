@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_HOME_PATH, type UserRole } from "@/lib/permissions/roles";
 import { ZivaLogo } from "@/components/domain/ziva-logo";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
+import { ForgotPasswordDialog } from "./forgot-password-dialog.client";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
@@ -24,6 +26,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const {
     register,
@@ -120,18 +123,34 @@ export default function LoginPage() {
                   {errors.password.message}
                 </p>
               )}
+              <button
+                type="button"
+                onClick={() => setForgotOpen(true)}
+                className="mt-1.5 text-sm text-royal-600 hover:underline"
+              >
+                Forgot password?
+              </button>
             </div>
 
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? "Signing in..." : "Sign in"}
             </Button>
           </form>
+
+          <p className="mt-4 text-center text-sm text-ink-500">
+            Don&apos;t have an account?{" "}
+            <Link href="/register" className="text-royal-600 hover:underline">
+              Sign up
+            </Link>
+          </p>
         </div>
 
         <p className="mt-6 text-center text-xs text-ink-500">
           ZIVA Online &amp; Special Classes &middot; EST. 2023
         </p>
       </div>
+
+      <ForgotPasswordDialog open={forgotOpen} onClose={() => setForgotOpen(false)} />
     </main>
   );
 }

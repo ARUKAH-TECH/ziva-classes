@@ -6,6 +6,15 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 const PUBLIC_PATHS = ["/login", "/register"];
 
+// Always reachable regardless of auth state — a password-recovery link
+// lands here with no session cookie yet (so the unauthenticated-redirect
+// branch below would otherwise bounce it to /login, discarding the
+// recovery token in the URL), and once supabase-js processes the link
+// client-side the visitor *does* have a session, so the "already signed
+// in" branch would otherwise bounce them to their role home before they
+// can set a new password.
+const ALWAYS_ACCESSIBLE_PATHS = ["/reset-password"];
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -33,6 +42,11 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+
+  if (ALWAYS_ACCESSIBLE_PATHS.some((p) => path.startsWith(p))) {
+    return response;
+  }
+
   const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
 
   if (!user && !isPublic) {

@@ -24,3 +24,6 @@ next-env.d.ts
 # supabase CLI local state
 /supabase/.branches
 /supabase/.temp
+
+.vercel
+.env*
