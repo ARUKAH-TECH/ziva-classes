@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface text-ink-900 font-body antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-heading text-navy-900;
+  }
+  h1 {
+    @apply text-[32px] leading-[40px] font-semibold;
+  }
+  h2 {
+    @apply text-2xl leading-[32px] font-semibold;
+  }
+  h3 {
+    @apply text-lg leading-[26px] font-semibold;
+  }
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-royal-600;
+  }
+}
