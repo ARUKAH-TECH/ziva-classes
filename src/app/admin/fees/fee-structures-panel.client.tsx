@@ -17,6 +17,8 @@ import {
   createFeeStructure,
   createMaterialsFeeStructure,
   setFeeStructureActive,
+  updateFeeStructure,
+  fillMissingSubjectFees,
   type FeeStructureRow,
 } from "@/lib/actions/fee-structures";
 import { generateChargesForTerm } from "@/lib/actions/charges";
@@ -43,6 +45,8 @@ export function FeeStructuresPanel({
   const [addMaterialsOpen, setAddMaterialsOpen] = useState(false);
   const [genTermId, setGenTermId] = useState(terms.find((t) => t.is_current)?.id ?? terms[0]?.id ?? "");
   const [generating, setGenerating] = useState(false);
+  const [filling, setFilling] = useState(false);
+  const [editing, setEditing] = useState<FeeStructureRow | null>(null);
 
   // de-dupe class+subject options (schedule options list one row per
   // teacher; fee structures are set per class+subject, not per teacher)
@@ -60,6 +64,20 @@ export function FeeStructuresPanel({
       return;
     }
     alert(`${result.data.created} student charge(s) created.`);
+  }
+
+  async function fillMissing() {
+    const term = terms.find((t) => t.id === genTermId);
+    if (!term) return;
+    setFilling(true);
+    const result = await fillMissingSubjectFees(term.academic_year_id, term.id);
+    setFilling(false);
+    if (!result.success) {
+      alert(result.error);
+      return;
+    }
+    if (result.data.created > 0) window.location.reload();
+    else alert("Every class/subject already has a fee set for this term.");
   }
 
   return (
@@ -81,7 +99,16 @@ export function FeeStructuresPanel({
               <RefreshCw className="h-4 w-4" /> {generating ? "Generating..." : "Generate"}
             </Button>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={fillMissing}
+              disabled={filling || !genTermId || uniqueClassSubjects.length === 0}
+              title="Set every class/subject without a fee yet to GH₵100 for the selected term — still editable per subject afterward"
+            >
+              <DollarSign className="h-4 w-4" /> {filling ? "Filling..." : "Fill missing at GH₵100"}
+            </Button>
             <Button size="sm" onClick={() => setAddOpen(true)} disabled={uniqueClassSubjects.length === 0}>
               <Plus className="h-4 w-4" /> Add subject fee
             </Button>
@@ -154,6 +181,9 @@ export function FeeStructuresPanel({
                     <Badge variant={s.active ? "success" : "neutral"}>{s.active ? "Active" : "Inactive"}</Badge>
                   </TD>
                   <TD className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(s)}>
+                      Edit
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -190,7 +220,74 @@ export function FeeStructuresPanel({
         years={years}
         terms={terms}
       />
+      {editing && (
+        <EditFeeStructureDialog
+          structure={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setStructures((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+            setEditing(null);
+          }}
+        />
+      )}
     </Card>
+  );
+}
+
+function EditFeeStructureDialog({
+  structure,
+  onClose,
+  onSaved,
+}: {
+  structure: FeeStructureRow;
+  onClose: () => void;
+  onSaved: (updated: FeeStructureRow) => void;
+}) {
+  const [amount, setAmount] = useState(String(structure.amount));
+  const [description, setDescription] = useState(structure.description ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    const result = await updateFeeStructure(structure.id, {
+      amount: parseFloat(amount),
+      description,
+    });
+    setBusy(false);
+    if (result.success) {
+      onSaved({ ...structure, amount: parseFloat(amount), description: description || null });
+    } else {
+      setError(result.error);
+    }
+  }
+
+  return (
+    <Dialog open onClose={onClose} title={`Edit fee — ${structure.subject_name} (${structure.class_name})`}>
+      <form onSubmit={submit} className="space-y-4">
+        {error && <Alert variant="error">{error}</Alert>}
+        <div>
+          <Label htmlFor="ef-amount">Amount (GH₵)</Label>
+          <Input
+            id="ef-amount"
+            type="number"
+            min={1}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="ef-description">Description (optional)</Label>
+          <Input id="ef-description" value={description} onChange={(e) => setDescription(e.target.value)} />
+        </div>
+        <Button type="submit" disabled={busy} className="w-full">
+          {busy ? "Saving..." : "Save changes"}
+        </Button>
+      </form>
+    </Dialog>
   );
 }
 

@@ -108,7 +108,52 @@ export async function addStudentSubject(
       };
     }
 
+    // Auto-bill: if this class/subject already has an active fee set for
+    // the current term, charge the student immediately instead of waiting
+    // for a manual "Generate charges" run — best-effort, so a hiccup here
+    // doesn't undo the subject enrollment that already succeeded above.
+    try {
+      const { data: term } = await supabase
+        .from("terms")
+        .select("id")
+        .eq("academic_year_id", academicYearId)
+        .eq("is_current", true)
+        .maybeSingle();
+      const termId = (term as { id: string } | null)?.id;
+
+      if (termId) {
+        const { data: feeStructure } = await supabase
+          .from("fee_structures")
+          .select("id, amount")
+          .eq("class_subject_id", classSubjectId)
+          .eq("term_id", termId)
+          .eq("fee_type", "SUBJECT")
+          .eq("active", true)
+          .maybeSingle();
+        const fs = feeStructure as { id: string; amount: number } | null;
+
+        if (fs) {
+          const { data: existingCharge } = await supabase
+            .from("student_charges")
+            .select("id")
+            .eq("student_id", studentId)
+            .eq("fee_structure_id", fs.id)
+            .maybeSingle();
+
+          if (!existingCharge) {
+            await supabase
+              .from("student_charges")
+              .insert({ student_id: studentId, fee_structure_id: fs.id, amount_due: fs.amount });
+          }
+        }
+      }
+    } catch {
+      // Best-effort — the subject enrollment itself already succeeded;
+      // admin can still generate the charge later from Fees & Payments.
+    }
+
     revalidatePath(`/admin/students/${studentId}`);
+    revalidatePath(`/admin/students/${studentId}?tab=fees`);
     return { success: true, data: undefined };
   } catch (e) {
     return { success: false, error: (e as Error).message };
