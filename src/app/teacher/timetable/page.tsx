@@ -41,6 +41,7 @@ export default async function TeacherTimetablePage() {
                         <TH>Subject</TH>
                         <TH>Type</TH>
                         <TH>Location</TH>
+                        <TH>Students</TH>
                       </TR>
                     </THead>
                     <TBody>
@@ -55,6 +56,9 @@ export default async function TeacherTimetablePage() {
                             <Badge variant="neutral">{s.session_type.replace("_", " ")}</Badge>
                           </TD>
                           <TD>{s.location ?? "—"}</TD>
+                          <TD className="max-w-[220px]">
+                            {s.students.length === 0 ? "—" : s.students.map((st) => st.name).join(", ")}
+                          </TD>
                         </TR>
                       ))}
                     </TBody>

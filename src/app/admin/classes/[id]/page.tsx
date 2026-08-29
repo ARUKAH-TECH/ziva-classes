@@ -3,15 +3,18 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getClass, listClassSubjects } from "@/lib/actions/classes";
 import { listSubjects } from "@/lib/actions/subjects";
+import { listClassMaterials } from "@/lib/actions/class-materials";
 import { Badge } from "@/components/ui/badge";
 import { ClassSubjectsClient } from "./class-subjects.client";
+import { ClassMaterialsClient } from "./class-materials.client";
 
 export default async function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [classRow, classSubjects, allSubjects] = await Promise.all([
+  const [classRow, classSubjects, allSubjects, materials] = await Promise.all([
     getClass(id),
     listClassSubjects(id),
     listSubjects(),
+    listClassMaterials(id),
   ]);
 
   if (!classRow) notFound();
@@ -42,6 +45,8 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
         initialClassSubjects={classSubjects}
         availableSubjects={availableSubjects}
       />
+
+      <ClassMaterialsClient classId={id} initialMaterials={materials} />
     </div>
   );
 }

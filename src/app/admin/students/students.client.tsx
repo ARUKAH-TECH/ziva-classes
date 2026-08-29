@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StudentAvatar } from "@/components/domain/student-avatar";
+import { ResetPasswordButton } from "@/components/domain/reset-password-button.client";
+import { ViewPasswordButton } from "@/components/domain/view-password-button.client";
 import { createStudent, type StudentListRow } from "@/lib/actions/students";
 import type { ClassRow } from "@/lib/actions/classes";
 import type { AcademicYear } from "@/lib/actions/academic-years";
@@ -24,10 +26,12 @@ export function StudentsClient({
   initialStudents,
   classes,
   currentYear,
+  canViewPassword,
 }: {
   initialStudents: StudentWithPhoto[];
   classes: ClassRow[];
   currentYear: AcademicYear | null;
+  canViewPassword: boolean;
 }) {
   const [addOpen, setAddOpen] = useState(false);
 
@@ -58,6 +62,7 @@ export function StudentsClient({
                 <TH>Location</TH>
                 <TH>Source</TH>
                 <TH>Status</TH>
+                <TH className="text-right">Actions</TH>
               </TR>
             </THead>
             <TBody>
@@ -91,6 +96,19 @@ export function StudentsClient({
                   </TD>
                   <TD>
                     <Badge variant={s.status === "ACTIVE" ? "success" : "neutral"}>{s.status}</Badge>
+                  </TD>
+                  <TD className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Link href={`/admin/students/${s.id}`}>
+                        <Button variant="ghost" size="sm">
+                          Manage
+                        </Button>
+                      </Link>
+                      {s.optional_user_id && <ResetPasswordButton userId={s.optional_user_id} />}
+                      {s.optional_user_id && canViewPassword && (
+                        <ViewPasswordButton userId={s.optional_user_id} />
+                      )}
+                    </div>
                   </TD>
                 </TR>
               ))}
@@ -126,6 +144,11 @@ function AddStudentDialog({
   const [classId, setClassId] = useState(classes[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState<{
+    studentId: string;
+    studentNumber: string;
+    tempPassword: string | null;
+  } | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -145,10 +168,56 @@ function AddStudentDialog({
     });
     setBusy(false);
     if (result.success) {
-      window.location.href = `/admin/students/${result.data.studentId}`;
+      setCreated(result.data);
     } else {
       setError(result.error);
     }
+  }
+
+  function finish() {
+    if (created) window.location.href = `/admin/students/${created.studentId}`;
+  }
+
+  if (created) {
+    const tempPassword = created.tempPassword;
+    return (
+      <Dialog open onClose={finish} title="Student created">
+        <div className="space-y-4">
+          {tempPassword ? (
+            <>
+              <Alert variant="success">
+                {firstName} {lastName} can now sign in on the ID tab of the login page. Share these
+                credentials securely. Once a parent is linked, this password automatically updates
+                to the parent&apos;s phone number.
+              </Alert>
+              <div className="rounded border border-gray-300 bg-surface p-3 font-mono text-sm">
+                <p>Student ID: {created.studentNumber}</p>
+                <p className="flex items-center gap-2">
+                  Password: {tempPassword}
+                  <button
+                    onClick={() => navigator.clipboard.writeText(tempPassword)}
+                    className="rounded p-1 text-ink-500 hover:bg-gray-100"
+                    aria-label="Copy password"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </p>
+              </div>
+            </>
+          ) : (
+            <Alert variant="success">
+              {firstName} {lastName}&apos;s Student ID is {created.studentNumber}. Their parent can
+              already view their portal from the parent account. A student login of their own is only
+              available for JHS and SHS students — you can create one from their profile page once
+              they&apos;re enrolled in a JHS or SHS class, if you&apos;d like them to use it.
+            </Alert>
+          )}
+          <Button onClick={finish} className="w-full">
+            Done
+          </Button>
+        </div>
+      </Dialog>
+    );
   }
 
   return (

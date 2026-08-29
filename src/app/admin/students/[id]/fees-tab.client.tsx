@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Wallet } from "lucide-react";
+import { Plus, Wallet, Pencil, Trash2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,37 +13,105 @@ import { Dialog } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import type { StudentChargeRow } from "@/lib/actions/charges";
+import {
+  createAdHocCharge,
+  updateCharge,
+  deleteCharge,
+  applyFeeStructureToStudent,
+  type StudentChargeRow,
+  type ApplicableFeeStructureRow,
+} from "@/lib/actions/charges";
 import { createPayment, type PaymentRow, type PaymentMethod } from "@/lib/actions/payments";
 
 export function FeesTab({
   studentId,
   charges,
   payments,
+  applicableFeeStructures,
 }: {
   studentId: string;
   charges: StudentChargeRow[];
   payments: PaymentRow[];
+  applicableFeeStructures: ApplicableFeeStructureRow[];
 }) {
   const [payOpen, setPayOpen] = useState(false);
+  const [addChargeOpen, setAddChargeOpen] = useState(false);
+  const [editingCharge, setEditingCharge] = useState<StudentChargeRow | null>(null);
+  const [applying, setApplying] = useState<string | null>(null);
   const outstanding = charges.filter((c) => c.balance > 0);
   const totalBalance = Math.round(charges.reduce((s, c) => s + c.balance, 0) * 100) / 100;
 
+  async function apply(fs: ApplicableFeeStructureRow) {
+    setApplying(fs.id);
+    const result = await applyFeeStructureToStudent(studentId, fs.id);
+    setApplying(null);
+    if (!result.success) {
+      alert(result.error);
+      return;
+    }
+    window.location.reload();
+  }
+
+  async function remove(c: StudentChargeRow) {
+    if (!confirm(`Remove the "${c.subject_name}" charge (GH₵${c.amount_due})?`)) return;
+    const result = await deleteCharge(c.id, studentId);
+    if (!result.success) {
+      alert(result.error);
+      return;
+    }
+    window.location.reload();
+  }
+
   return (
     <div className="space-y-6">
+      {applicableFeeStructures.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Applicable fee structures</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-3 text-sm text-ink-500">
+              Class/subject fees that apply to this student and haven&apos;t been billed yet — apply
+              one directly instead of running &quot;Generate charges&quot; for the whole class.
+            </p>
+            <ul className="divide-y divide-gray-300 rounded border border-gray-300">
+              {applicableFeeStructures.map((fs) => (
+                <li key={fs.id} className="flex items-center justify-between px-3 py-2.5 text-sm">
+                  <span>
+                    <span className="font-medium text-navy-900">{fs.label}</span>
+                    <span className="text-ink-500">
+                      {" "}
+                      · {fs.term_name ?? "All terms"} · GH₵{fs.amount}
+                    </span>
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => apply(fs)} disabled={applying === fs.id}>
+                    {applying === fs.id ? "Applying..." : "Apply"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Charges</CardTitle>
-          <Button size="sm" onClick={() => setPayOpen(true)} disabled={outstanding.length === 0}>
-            <Plus className="h-4 w-4" /> Record payment
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setAddChargeOpen(true)}>
+              <Plus className="h-4 w-4" /> Add charge
+            </Button>
+            <Button size="sm" onClick={() => setPayOpen(true)} disabled={outstanding.length === 0}>
+              <Plus className="h-4 w-4" /> Record payment
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {charges.length === 0 ? (
             <EmptyState
               icon={Wallet}
               title="No charges yet"
-              description="Charges appear once generated from Fees & Payments for a term this student is enrolled in."
+              description="Charges appear once generated from Fees & Payments for a term this student is enrolled in, or you can add one directly with Add charge."
             />
           ) : (
             <>
@@ -55,6 +123,7 @@ export function FeesTab({
                     <TH>Amount Due</TH>
                     <TH>Amount Paid</TH>
                     <TH>Balance</TH>
+                    <TH className="text-right">Actions</TH>
                   </TR>
                 </THead>
                 <TBody>
@@ -66,6 +135,22 @@ export function FeesTab({
                       <TD>GH₵{c.amount_paid}</TD>
                       <TD>
                         <Badge variant={c.balance > 0 ? "warning" : "success"}>GH₵{c.balance}</Badge>
+                      </TD>
+                      <TD className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => setEditingCharge(c)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => remove(c)}
+                            disabled={c.amount_paid > 0}
+                            title={c.amount_paid > 0 ? "Can't delete — a payment is recorded against this charge" : undefined}
+                          >
+                            <Trash2 className="h-4 w-4 text-error" />
+                          </Button>
+                        </div>
                       </TD>
                     </TR>
                   ))}
@@ -81,40 +166,46 @@ export function FeesTab({
 
       <Card>
         <CardHeader>
-          <CardTitle>Payment history</CardTitle>
+          <CardTitle>Payment history &amp; receipts</CardTitle>
         </CardHeader>
         <CardContent>
           {payments.length === 0 ? (
             <p className="text-sm text-ink-500">No payments recorded yet.</p>
           ) : (
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Date</TH>
-                  <TH>Amount</TH>
-                  <TH>Method</TH>
-                  <TH>Reference</TH>
-                  <TH>Allocated to</TH>
-                  <TH>Recorded by</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {payments.map((p) => (
-                  <TR key={p.id}>
-                    <TD>{new Date(p.payment_date).toLocaleDateString()}</TD>
-                    <TD className="font-medium text-navy-900">GH₵{p.amount}</TD>
-                    <TD>
-                      <Badge variant="neutral">{p.payment_method === "MTN_MOBILE_MONEY" ? "MTN MoMo" : "Cash"}</Badge>
-                    </TD>
-                    <TD>{p.reference ?? "—"}</TD>
-                    <TD className="text-xs">
-                      {p.allocations.map((a) => `${a.subject_name}: GH₵${a.amount_allocated}`).join(", ") || "—"}
-                    </TD>
-                    <TD>{p.recorded_by_name ?? "—"}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
+            <div className="flex flex-col divide-y divide-gray-200">
+              {[...payments]
+                .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+                .map((p) => {
+                  const d = new Date(p.payment_date);
+                  const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                  return (
+                    <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-navy-900">GH₵{p.amount}</span>
+                          <Badge variant="neutral">
+                            {p.payment_method === "MTN_MOBILE_MONEY" ? "MTN MoMo" : "Cash"}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-sm text-ink-500">
+                          {date} at {time}
+                          {p.reference ? ` · Ref: ${p.reference}` : ""}
+                          {p.recorded_by_name ? ` · Recorded by ${p.recorded_by_name}` : ""}
+                        </p>
+                        <p className="mt-1 text-xs text-ink-500">
+                          {p.allocations.map((a) => `${a.subject_name}: GH₵${a.amount_allocated}`).join(", ") || "—"}
+                        </p>
+                      </div>
+                      <a href={`/api/payments/${p.id}/receipt`} target="_blank" rel="noreferrer">
+                        <Button variant="ghost" size="sm">
+                          <Printer className="h-4 w-4" /> Receipt
+                        </Button>
+                      </a>
+                    </div>
+                  );
+                })}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -122,7 +213,143 @@ export function FeesTab({
       {payOpen && (
         <RecordPaymentDialog studentId={studentId} outstanding={outstanding} onClose={() => setPayOpen(false)} />
       )}
+      {addChargeOpen && (
+        <AddChargeDialog studentId={studentId} onClose={() => setAddChargeOpen(false)} />
+      )}
+      {editingCharge && (
+        <EditChargeDialog
+          studentId={studentId}
+          charge={editingCharge}
+          onClose={() => setEditingCharge(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function AddChargeDialog({ studentId, onClose }: { studentId: string; onClose: () => void }) {
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const amt = parseFloat(amount);
+    if (!description || Number.isNaN(amt) || amt <= 0) {
+      setError("Enter a description and a positive amount.");
+      return;
+    }
+    setBusy(true);
+    const result = await createAdHocCharge(studentId, description, amt);
+    setBusy(false);
+    if (result.success) {
+      window.location.reload();
+    } else {
+      setError(result.error);
+    }
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="Add individual charge">
+      <form onSubmit={submit} className="space-y-4">
+        <p className="text-sm text-ink-500">
+          A one-off charge for this student only — e.g. a late-registration fee or a damaged-book
+          fine. For fees that apply to a whole class or subject, use Fees &amp; Payments instead.
+        </p>
+        {error && <Alert variant="error">{error}</Alert>}
+        <div>
+          <Label htmlFor="ac-description">Description</Label>
+          <Input
+            id="ac-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Late registration fee"
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="ac-amount">Amount (GH₵)</Label>
+          <Input
+            id="ac-amount"
+            type="number"
+            min={1}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+          />
+        </div>
+        <Button type="submit" disabled={busy} className="w-full">
+          {busy ? "Adding..." : "Add charge"}
+        </Button>
+      </form>
+    </Dialog>
+  );
+}
+
+function EditChargeDialog({
+  studentId,
+  charge,
+  onClose,
+}: {
+  studentId: string;
+  charge: StudentChargeRow;
+  onClose: () => void;
+}) {
+  const [description, setDescription] = useState(charge.subject_name);
+  const [amount, setAmount] = useState(String(charge.amount_due));
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const amt = parseFloat(amount);
+    if (!description || Number.isNaN(amt) || amt <= 0) {
+      setError("Enter a description and a positive amount.");
+      return;
+    }
+    setBusy(true);
+    const result = await updateCharge(charge.id, studentId, { description, amount_due: amt });
+    setBusy(false);
+    if (result.success) {
+      window.location.reload();
+    } else {
+      setError(result.error);
+    }
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="Edit charge">
+      <form onSubmit={submit} className="space-y-4">
+        {charge.amount_paid > 0 && (
+          <Alert variant="warning">
+            GH₵{charge.amount_paid} has already been paid against this charge — the new amount
+            can&apos;t be less than that.
+          </Alert>
+        )}
+        {error && <Alert variant="error">{error}</Alert>}
+        <div>
+          <Label htmlFor="ec-description">Description</Label>
+          <Input id="ec-description" value={description} onChange={(e) => setDescription(e.target.value)} required />
+        </div>
+        <div>
+          <Label htmlFor="ec-amount">Amount (GH₵)</Label>
+          <Input
+            id="ec-amount"
+            type="number"
+            min={1}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+          />
+        </div>
+        <Button type="submit" disabled={busy} className="w-full">
+          {busy ? "Saving..." : "Save changes"}
+        </Button>
+      </form>
+    </Dialog>
   );
 }
 

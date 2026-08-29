@@ -15,9 +15,11 @@ import type { StudentParentRow } from "@/lib/actions/student-parents";
 import type { ParentRow } from "@/lib/actions/parents";
 import type { AttendanceSummary } from "@/lib/actions/attendance";
 import type { StudentPerformanceSummary } from "@/lib/actions/scores";
-import type { StudentChargeRow } from "@/lib/actions/charges";
+import type { StudentChargeRow, ApplicableFeeStructureRow } from "@/lib/actions/charges";
 import type { PaymentRow } from "@/lib/actions/payments";
 import type { ChangeRequestRow } from "@/lib/actions/change-requests";
+import type { ClassRow } from "@/lib/actions/classes";
+import type { AcademicYear } from "@/lib/actions/academic-years";
 
 export function StudentDetailTabs({
   student,
@@ -34,6 +36,10 @@ export function StudentDetailTabs({
   payments,
   locationRequests,
   photoRequests,
+  classes,
+  currentYear,
+  applicableFeeStructures,
+  canViewPassword,
 }: {
   student: StudentDetail;
   photoUrl: string | null;
@@ -49,6 +55,10 @@ export function StudentDetailTabs({
   payments: PaymentRow[];
   locationRequests: ChangeRequestRow[];
   photoRequests: (ChangeRequestRow & { preview_url?: string | null })[];
+  classes: ClassRow[];
+  currentYear: AcademicYear | null;
+  applicableFeeStructures: ApplicableFeeStructureRow[];
+  canViewPassword: boolean;
 }) {
   return (
     <Tabs defaultValue="overview">
@@ -63,7 +73,14 @@ export function StudentDetailTabs({
       </TabsList>
 
       <TabsContent value="overview">
-        <OverviewTab student={student} enrollment={enrollment} attendance={attendance} performance={performance} />
+        <OverviewTab
+          student={student}
+          enrollment={enrollment}
+          attendance={attendance}
+          performance={performance}
+          classes={classes}
+          currentYear={currentYear}
+        />
       </TabsContent>
 
       <TabsContent value="photo">
@@ -89,7 +106,12 @@ export function StudentDetailTabs({
       </TabsContent>
 
       <TabsContent value="fees">
-        <FeesTab studentId={student.id} charges={charges} payments={payments} />
+        <FeesTab
+          studentId={student.id}
+          charges={charges}
+          payments={payments}
+          applicableFeeStructures={applicableFeeStructures}
+        />
       </TabsContent>
 
       <TabsContent value="parents">
@@ -99,9 +121,11 @@ export function StudentDetailTabs({
       <TabsContent value="account">
         <AccountTab
           studentId={student.id}
+          studentNumber={student.student_number}
           hasAccount={!!student.optional_user_id}
-          accountEmail={student.account_email}
-          suggestedEmail={student.email}
+          accountUserId={student.optional_user_id}
+          academicLevelName={enrollment?.academic_level_name ?? null}
+          canViewPassword={canViewPassword}
         />
       </TabsContent>
     </Tabs>

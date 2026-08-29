@@ -1,7 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { ZivaLogo } from "@/components/domain/ziva-logo";
+import { PerformanceTrendChart } from "@/components/domain/performance-trend-chart.client";
 import type { TerminalReportPayload } from "@/lib/reports/compute-report";
-import type { ReportStatus } from "@/lib/actions/terminal-reports";
+import type { ReportStatus, ReportHistoryPoint } from "@/lib/actions/terminal-reports";
 
 const FEE_STATUS_LABEL: Record<string, string> = {
   CLEARED: "Cleared",
@@ -19,6 +20,7 @@ export function TerminalReportView({
   photoUrl,
   orgName,
   orgMotto,
+  history = [],
 }: {
   payload: TerminalReportPayload;
   status: ReportStatus;
@@ -28,7 +30,32 @@ export function TerminalReportView({
   photoUrl: string | null;
   orgName: string;
   orgMotto: string;
+  history?: ReportHistoryPoint[];
 }) {
+  // history already covers every PUBLISHED term for this student; add this
+  // report's own term if it isn't in there yet (e.g. still a draft), so the
+  // trend always includes "right now" even before publishing.
+  const trendPoints = [
+    ...history,
+    ...(history.some((h) => h.term_id === payload.term_id)
+      ? []
+      : [
+          {
+            term_id: payload.term_id,
+            term_name: payload.term_name,
+            academic_year_name: payload.academic_year_name,
+            overall_average: payload.overall_average,
+            start_date: payload.term_start_date ?? "",
+          },
+        ]),
+  ]
+    .sort((a, b) => a.start_date.localeCompare(b.start_date))
+    .map((h) => ({
+      label: h.term_name,
+      average: h.overall_average,
+      current: h.term_id === payload.term_id,
+    }));
+
   return (
     <div className="mx-auto max-w-[210mm] bg-white p-[12mm] text-ink-900 print:p-0 print:shadow-none" id="terminal-report">
       {/* Header */}
@@ -81,7 +108,9 @@ export function TerminalReportView({
           <tr className="bg-navy-900 text-white">
             <th className="border border-navy-900 px-2 py-1.5 text-left">Subject</th>
             <th className="border border-navy-900 px-2 py-1.5 text-left">Assessments</th>
-            <th className="border border-navy-900 px-2 py-1.5 text-right">Average %</th>
+            <th className="border border-navy-900 px-2 py-1.5 text-right">CA %</th>
+            <th className="border border-navy-900 px-2 py-1.5 text-right">Exam %</th>
+            <th className="border border-navy-900 px-2 py-1.5 text-right">Total %</th>
             <th className="border border-navy-900 px-2 py-1.5 text-center">Grade</th>
             <th className="border border-navy-900 px-2 py-1.5 text-left">Teacher</th>
             <th className="border border-navy-900 px-2 py-1.5 text-left">Comment</th>
@@ -90,7 +119,7 @@ export function TerminalReportView({
         <tbody>
           {payload.subjects.length === 0 ? (
             <tr>
-              <td colSpan={6} className="border border-gray-300 px-2 py-3 text-center text-ink-500">
+              <td colSpan={8} className="border border-gray-300 px-2 py-3 text-center text-ink-500">
                 No subjects enrolled.
               </td>
             </tr>
@@ -104,6 +133,12 @@ export function TerminalReportView({
                     : s.assessments.map((a) => `${a.name} (${a.score}/${a.maximum_score})`).join(", ")}
                 </td>
                 <td className="border border-gray-300 px-2 py-1.5 text-right">
+                  {s.ca_percentage !== null ? `${s.ca_percentage}%` : "—"}
+                </td>
+                <td className="border border-gray-300 px-2 py-1.5 text-right">
+                  {s.exam_percentage !== null ? `${s.exam_percentage}%` : "—"}
+                </td>
+                <td className="border border-gray-300 px-2 py-1.5 text-right font-semibold">
                   {s.subject_average_percentage !== null ? `${s.subject_average_percentage}%` : "—"}
                 </td>
                 <td className="border border-gray-300 px-2 py-1.5 text-center font-semibold text-gold-700">
@@ -126,6 +161,14 @@ export function TerminalReportView({
           <div className="space-y-1 text-xs">
             <Field label="Overall Average" value={payload.overall_average !== null ? `${payload.overall_average}%` : "—"} />
             <Field label="Overall Grade" value={payload.overall_grade ?? "—"} />
+            <Field
+              label="Total Score"
+              value={
+                payload.overall_total_possible > 0
+                  ? `${payload.overall_total_score} out of ${payload.overall_total_possible}`
+                  : "—"
+              }
+            />
             <Field label="Number of Subjects" value={String(payload.subject_count)} />
             <Field label="Strongest Subject" value={payload.strongest_subject ?? "—"} />
             <Field
@@ -144,8 +187,10 @@ export function TerminalReportView({
         <div>
           <h2 className="mb-2 font-heading text-sm font-bold uppercase tracking-wide text-navy-900">Attendance</h2>
           <div className="space-y-1 text-xs">
-            <Field label="Total Scheduled Sessions" value={String(payload.attendance.total_sessions)} />
-            <Field label="Present" value={String(payload.attendance.present)} />
+            <Field
+              label="Attendance"
+              value={`${payload.attendance.present} out of ${payload.attendance.total_sessions}`}
+            />
             <Field label="Absent" value={String(payload.attendance.absent)} />
             <Field label="Late" value={String(payload.attendance.late)} />
             <Field label="Excused" value={String(payload.attendance.excused)} />
@@ -156,6 +201,18 @@ export function TerminalReportView({
           </div>
         </div>
       </div>
+
+      {/* Performance trend across terms */}
+      {trendPoints.some((p) => p.average !== null) && (
+        <div className="mt-5">
+          <h2 className="mb-2 font-heading text-sm font-bold uppercase tracking-wide text-navy-900">
+            Performance Trend (Term vs. Overall Score)
+          </h2>
+          <div className="rounded border border-gray-300 bg-surface p-3">
+            <PerformanceTrendChart points={trendPoints} />
+          </div>
+        </div>
+      )}
 
       {/* Overall teacher comment */}
       <div className="mt-4">

@@ -14,7 +14,7 @@ export default async function StudentProfilePage() {
       <MyProfileCard
         firstName={student?.first_name ?? ""}
         lastName={student?.last_name ?? ""}
-        email={student?.account_email ?? null}
+        email={student?.email ?? null}
         phone={student?.account_phone ?? null}
         revalidatePathAfter="/student/profile"
         fields={[

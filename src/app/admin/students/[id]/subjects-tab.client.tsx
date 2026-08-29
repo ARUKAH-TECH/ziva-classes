@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X, BookOpen } from "lucide-react";
+import Link from "next/link";
+import { Plus, X, BookOpen, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
@@ -34,7 +35,7 @@ export function SubjectsTab({
           <EmptyState
             icon={BookOpen}
             title="Not enrolled in a class"
-            description="Enroll this student in a class from Classes before assigning subjects."
+            description="Assign this student to a class from the Overview tab before assigning subjects."
           />
         </CardContent>
       </Card>
@@ -78,19 +79,19 @@ export function SubjectsTab({
             description="Assign the subjects this student is taking from the class's subject list."
           />
         ) : (
-          <ul className="mb-5 flex flex-wrap gap-2">
+          <ul className="mb-5 divide-y divide-gray-300 rounded border border-gray-300">
             {studentSubjects.map((s) => (
-              <li
-                key={s.id}
-                className="flex items-center gap-1.5 rounded-full border border-gray-300 bg-surface py-1 pl-3 pr-1.5 text-sm"
-              >
-                {s.subject_name}
+              <li key={s.id} className="flex items-center justify-between px-3 py-2.5 text-sm">
+                <span>
+                  <span className="font-medium text-navy-900">{s.subject_name}</span>
+                  <span className="text-ink-500"> · {s.teacher_name ?? "No teacher assigned yet"}</span>
+                </span>
                 <button
                   aria-label={`Remove ${s.subject_name}`}
                   onClick={() => unassign(s)}
-                  className="rounded-full p-0.5 text-ink-500 hover:bg-gray-100 hover:text-error"
+                  className="rounded p-1 text-ink-500 hover:bg-gray-100 hover:text-error"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                 </button>
               </li>
             ))}
@@ -112,12 +113,20 @@ export function SubjectsTab({
               <Plus className="h-4 w-4" /> Assign subject
             </Button>
           </div>
+        ) : availableClassSubjects.length === 0 ? (
+          <div className="rounded border border-warning/30 bg-warning/5 p-3">
+            <p className="mb-2 text-sm text-ink-500">
+              {enrollment.class_name} has no subjects assigned yet — add some there first.
+            </p>
+            <Link
+              href={`/admin/classes/${enrollment.class_id}`}
+              className="inline-flex items-center gap-1 text-sm font-medium text-royal-600 hover:underline"
+            >
+              Go to {enrollment.class_name} <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         ) : (
-          <p className="text-sm text-ink-500">
-            {availableClassSubjects.length === 0
-              ? "This class has no subjects assigned yet — add some from Classes."
-              : "Enrolled in every subject this class offers."}
-          </p>
+          <p className="text-sm text-ink-500">Enrolled in every subject this class offers.</p>
         )}
       </CardContent>
     </Card>

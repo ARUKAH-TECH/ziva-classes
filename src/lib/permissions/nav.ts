@@ -10,6 +10,7 @@ import {
   FileText,
   Award,
   Wallet,
+  Receipt,
   LifeBuoy,
   MessageSquare,
   BarChart3,
@@ -17,6 +18,8 @@ import {
   Bell,
   User,
   ListChecks,
+  NotebookPen,
+  MessageSquareWarning,
 } from "lucide-react";
 import type { UserRole } from "./roles";
 
@@ -37,6 +40,7 @@ export const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Timetable", href: "/teacher/timetable", icon: CalendarClock },
     { label: "Attendance", href: "/teacher/attendance", icon: ClipboardCheck },
     { label: "Assessments", href: "/teacher/assessments", icon: FileText },
+    { label: "Lesson Notes", href: "/teacher/lesson-notes", icon: NotebookPen },
     { label: "Results", href: "/teacher/results", icon: Award },
     { label: "Student Support", href: "/teacher/support", icon: LifeBuoy },
     { label: "Messages", href: "/teacher/messages", icon: MessageSquare },
@@ -50,6 +54,7 @@ export const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Fees & Payments", href: "/parent/fees", icon: Wallet },
     { label: "Timetable", href: "/parent/timetable", icon: CalendarClock },
     { label: "Teacher Feedback", href: "/parent/feedback", icon: MessageSquare },
+    { label: "Feedback on Teachers", href: "/parent/teacher-feedback", icon: MessageSquareWarning },
     { label: "Terminal Reports", href: "/parent/terminal-reports", icon: FileText },
     { label: "Notifications", href: "/parent/notifications", icon: Bell },
     { label: "Profile", href: "/parent/profile", icon: User },
@@ -81,7 +86,10 @@ function adminNav(): NavItem[] {
     { label: "Assessments", href: "/admin/assessments", icon: FileText },
     { label: "Results", href: "/admin/results", icon: Award },
     { label: "Terminal Reports", href: "/admin/terminal-reports", icon: FileText },
+    { label: "Lesson Notes", href: "/admin/lesson-notes", icon: NotebookPen },
+    { label: "Parent Feedback", href: "/admin/teacher-feedback", icon: MessageSquareWarning },
     { label: "Fees & Payments", href: "/admin/fees", icon: Wallet },
+    { label: "Receipts", href: "/admin/receipts", icon: Receipt },
     { label: "Student Support", href: "/admin/support", icon: LifeBuoy },
     { label: "Communication", href: "/admin/communication", icon: MessageSquare },
     { label: "Reports", href: "/admin/reports", icon: BarChart3 },

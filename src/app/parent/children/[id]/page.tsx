@@ -11,6 +11,7 @@ import { getStudentPerformanceSummary } from "@/lib/actions/scores";
 import { listStudentCharges } from "@/lib/actions/charges";
 import { listVisibleNeedsForChild } from "@/lib/actions/student-needs";
 import { getMyOrgSettings } from "@/lib/actions/organization";
+import { listClassMaterials } from "@/lib/actions/class-materials";
 import { Badge } from "@/components/ui/badge";
 import { StudentAvatar } from "@/components/domain/student-avatar";
 import { ChildDetailTabs } from "./child-detail-tabs.client";
@@ -23,16 +24,18 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
 
   const enrollment = await getStudentCurrentEnrollment(id);
 
-  const [photoUrl, locations, subjects, attendance, performance, charges, needs, orgSettings] = await Promise.all([
-    getStudentPhotoUrl(child.passport_photo_path),
-    listStudentLocations(id),
-    enrollment ? listStudentSubjects(id, enrollment.academic_year_id) : Promise.resolve([]),
-    getStudentAttendanceSummary(id),
-    getStudentPerformanceSummary(id),
-    listStudentCharges(id),
-    listVisibleNeedsForChild(id),
-    getMyOrgSettings(),
-  ]);
+  const [photoUrl, locations, subjects, attendance, performance, charges, needs, orgSettings, materials] =
+    await Promise.all([
+      getStudentPhotoUrl(child.passport_photo_path),
+      listStudentLocations(id),
+      enrollment ? listStudentSubjects(id, enrollment.academic_year_id) : Promise.resolve([]),
+      getStudentAttendanceSummary(id),
+      getStudentPerformanceSummary(id),
+      listStudentCharges(id),
+      listVisibleNeedsForChild(id),
+      getMyOrgSettings(),
+      enrollment ? listClassMaterials(enrollment.class_id) : Promise.resolve([]),
+    ]);
 
   const balance = Math.round(charges.reduce((s, c) => s + c.balance, 0) * 100) / 100;
 
@@ -70,6 +73,7 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
         needs={needs}
         canEditLocation={orgSettings.parent_can_edit_location}
         canEditPhoto={orgSettings.parent_can_edit_photo}
+        materials={materials}
       />
     </div>
   );

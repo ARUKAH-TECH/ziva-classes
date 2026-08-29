@@ -423,6 +423,50 @@ export async function getFullReport(reportId: string): Promise<FullReport | null
   };
 }
 
+export interface ReportHistoryPoint {
+  term_id: string;
+  term_name: string;
+  academic_year_name: string;
+  overall_average: number | null;
+  start_date: string;
+}
+
+// Chronological trend of this student's PUBLISHED overall averages, across
+// every term — backs the "improving/declining" graph on the report view.
+// Relies on RLS the same way listMyPublishedReports/getFullReport do: a
+// parent/student session already only sees PUBLISHED rows for their own
+// child/self, and this adds status='PUBLISHED' explicitly too so an admin
+// session (which can see drafts) doesn't pull in unfinished terms as if
+// they were real historical data points.
+export async function listReportHistory(studentId: string): Promise<ReportHistoryPoint[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("terminal_reports")
+    .select("term_id, overall_average, terms(name, start_date, academic_years(name))")
+    .eq("student_id", studentId)
+    .eq("status", "PUBLISHED");
+
+  type Nested = { name: string } | { name: string }[] | null;
+  type T = { name: string; start_date: string; academic_years: Nested } | { name: string; start_date: string; academic_years: Nested }[] | null;
+  type Raw = { term_id: string; overall_average: number | null; terms: T };
+
+  const one = <V,>(v: V | V[] | null): V | null => (Array.isArray(v) ? v[0] ?? null : v);
+
+  return ((data as Raw[]) ?? [])
+    .map((row) => {
+      const t = one(row.terms);
+      return {
+        term_id: row.term_id,
+        term_name: t?.name ?? "—",
+        academic_year_name: one(t?.academic_years ?? null)?.name ?? "—",
+        overall_average: row.overall_average,
+        start_date: t?.start_date ?? "",
+      };
+    })
+    .sort((a, b) => a.start_date.localeCompare(b.start_date));
+}
+
 export interface MyReportRow {
   id: string;
   student_id: string;

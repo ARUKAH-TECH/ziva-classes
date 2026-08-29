@@ -4,15 +4,17 @@ import { listOutstandingBalances } from "@/lib/actions/charges";
 import { listScheduleOptions } from "@/lib/actions/schedules";
 import { listAcademicYears } from "@/lib/actions/academic-years";
 import { listTerms } from "@/lib/actions/terms";
+import { listClasses } from "@/lib/actions/classes";
 import { FeesTabs } from "./fees-tabs.client";
 
 export default async function AdminFeesPage() {
-  const [stats, feeStructures, outstanding, options, years] = await Promise.all([
+  const [stats, feeStructures, outstanding, options, years, classes] = await Promise.all([
     getFinancialDashboardStats(),
     listFeeStructures(),
     listOutstandingBalances(),
     listScheduleOptions(),
     listAcademicYears(),
+    listClasses(),
   ]);
   const recentPayments = await listRecentPayments(10);
 
@@ -35,6 +37,7 @@ export default async function AdminFeesPage() {
         classSubjectOptions={options}
         years={years}
         terms={terms}
+        classes={classes}
       />
     </div>
   );

@@ -1,8 +1,9 @@
 import { listParents } from "@/lib/actions/parents";
+import { isSuperAdmin } from "@/lib/actions/user-admin";
 import { ParentsClient } from "./parents.client";
 
 export default async function ParentsPage() {
-  const parents = await listParents();
+  const [parents, canViewPassword] = await Promise.all([listParents(), isSuperAdmin()]);
 
   return (
     <div className="space-y-6">
@@ -12,7 +13,7 @@ export default async function ParentsPage() {
           Manage parent/guardian accounts. Link them to children from a student&apos;s profile.
         </p>
       </div>
-      <ParentsClient initialParents={parents} />
+      <ParentsClient initialParents={parents} canViewPassword={canViewPassword} />
     </div>
   );
 }

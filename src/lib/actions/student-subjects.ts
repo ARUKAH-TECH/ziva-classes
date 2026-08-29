@@ -8,6 +8,7 @@ export interface StudentSubjectRow {
   id: string; // student_subjects.id
   class_subject_id: string;
   subject_name: string;
+  teacher_name: string | null;
 }
 
 function one<T>(v: T | T[] | null): T | null {
@@ -46,22 +47,42 @@ export async function listStudentSubjects(
 
   const { data } = await supabase
     .from("student_subjects")
-    .select("id, class_subject_id, class_subjects(subjects(name))")
+    .select(
+      "id, class_subject_id, class_subjects(subjects(name), teacher_assignments(active, academic_year_id, teacher_profiles(users(first_name, last_name))))"
+    )
     .eq("student_id", studentId)
     .eq("academic_year_id", academicYearId);
 
+  type TA = {
+    active: boolean;
+    academic_year_id: string;
+    teacher_profiles: { users: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null } | { users: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null }[] | null;
+  };
+  type CS = {
+    subjects: { name: string } | { name: string }[] | null;
+    teacher_assignments: TA | TA[] | null;
+  };
   type Raw = {
     id: string;
     class_subject_id: string;
-    class_subjects: { subjects: { name: string } | { name: string }[] | null } | { subjects: { name: string } | { name: string }[] | null }[] | null;
+    class_subjects: CS | CS[] | null;
   };
 
   return ((data as Raw[]) ?? []).map((row) => {
     const cs = one(row.class_subjects);
+    const assignments = Array.isArray(cs?.teacher_assignments)
+      ? cs.teacher_assignments
+      : cs?.teacher_assignments
+      ? [cs.teacher_assignments]
+      : [];
+    const activeAssignment = assignments.find((a) => a.active && a.academic_year_id === academicYearId);
+    const teacherUser = one(activeAssignment?.teacher_profiles ?? null)?.users ?? null;
+    const teacher = one(teacherUser);
     return {
       id: row.id,
       class_subject_id: row.class_subject_id,
       subject_name: one(cs?.subjects ?? null)?.name ?? "—",
+      teacher_name: teacher ? `${teacher.first_name} ${teacher.last_name}` : null,
     };
   });
 }

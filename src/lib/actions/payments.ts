@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin, type ActionResult } from "@/lib/auth/require-admin";
 import { createClient } from "@/lib/supabase/server";
+import { notifyParentsOfStudent } from "@/lib/notifications";
 
 // Payment methods are ONLY these two — GCB and any other bank must never
 // appear anywhere in the application (Rules 7-8).
@@ -29,16 +30,21 @@ export async function listPayments(studentId: string): Promise<PaymentRow[]> {
   const { data } = await supabase
     .from("payments")
     .select(
-      "id, amount, payment_method, reference, payment_date, notes, users(first_name, last_name), payment_allocations(amount_allocated, student_charges(fee_structures(class_subjects(subjects(name)))))"
+      "id, amount, payment_method, reference, payment_date, notes, users(first_name, last_name), payment_allocations(amount_allocated, student_charges(fee_structures(fee_type, description, class_subjects(subjects(name)))))"
     )
     .eq("student_id", studentId)
     .order("payment_date", { ascending: false });
 
   type Nested = { name: string } | { name: string }[] | null;
   type U = { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
+  type FS = {
+    fee_type: "SUBJECT" | "MATERIALS";
+    description: string | null;
+    class_subjects: { subjects: Nested } | { subjects: Nested }[] | null;
+  };
   type Alloc = {
     amount_allocated: number;
-    student_charges: { fee_structures: { class_subjects: { subjects: Nested } | { subjects: Nested }[] | null } | { class_subjects: { subjects: Nested } | { subjects: Nested }[] | null }[] | null } | { fee_structures: { class_subjects: { subjects: Nested } | { subjects: Nested }[] | null } | { class_subjects: { subjects: Nested } | { subjects: Nested }[] | null }[] | null }[] | null;
+    student_charges: { fee_structures: FS | FS[] | null } | { fee_structures: FS | FS[] | null }[] | null;
   };
   type Raw = {
     id: string;
@@ -57,7 +63,8 @@ export async function listPayments(studentId: string): Promise<PaymentRow[]> {
       const sc = one(a.student_charges);
       const fs = one(sc?.fee_structures ?? null);
       const cs = one(fs?.class_subjects ?? null);
-      const subjectName = one(cs?.subjects ?? null)?.name ?? "—";
+      const subjectName =
+        fs?.fee_type === "MATERIALS" ? fs.description ?? "Materials" : one(cs?.subjects ?? null)?.name ?? "—";
       return { subject_name: subjectName, amount_allocated: a.amount_allocated };
     });
 
@@ -74,6 +81,90 @@ export async function listPayments(studentId: string): Promise<PaymentRow[]> {
   });
 }
 
+export interface PaymentReceipt {
+  id: string;
+  amount: number;
+  payment_method: PaymentMethod;
+  reference: string | null;
+  payment_date: string;
+  notes: string | null;
+  recorded_by_name: string | null;
+  allocations: { subject_name: string; amount_allocated: number }[];
+  student_name: string;
+  student_number: string;
+}
+
+// For the printable receipt (see /api/payments/[id]/receipt). Deliberately
+// not admin-gated — a parent should be able to print their own child's
+// receipt. Uses the caller's own session (not the admin client), so the
+// same RLS policies that already let a parent read their child's payments
+// via listPayments are what scope this too — an admin sees any payment in
+// their org, a parent only their own children's, and anyone else gets null.
+export async function getPaymentReceipt(paymentId: string): Promise<PaymentReceipt | null> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("payments")
+    .select(
+      "id, amount, payment_method, reference, payment_date, notes, users(first_name, last_name), student_profiles!inner(first_name, last_name, student_number), payment_allocations(amount_allocated, student_charges(fee_structures(fee_type, description, class_subjects(subjects(name)))))"
+    )
+    .eq("id", paymentId)
+    .single();
+
+  if (!data) return null;
+
+  type Nested = { name: string } | { name: string }[] | null;
+  type U = { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
+  type SP = { first_name: string; last_name: string; student_number: string } | { first_name: string; last_name: string; student_number: string }[] | null;
+  type FS = {
+    fee_type: "SUBJECT" | "MATERIALS";
+    description: string | null;
+    class_subjects: { subjects: Nested } | { subjects: Nested }[] | null;
+  };
+  type Alloc = {
+    amount_allocated: number;
+    student_charges: { fee_structures: FS | FS[] | null } | { fee_structures: FS | FS[] | null }[] | null;
+  };
+  type Raw = {
+    id: string;
+    amount: number;
+    payment_method: PaymentMethod;
+    reference: string | null;
+    payment_date: string;
+    notes: string | null;
+    users: U;
+    student_profiles: SP;
+    payment_allocations: Alloc[] | null;
+  };
+
+  const row = data as Raw;
+  const recorder = one(row.users);
+  const student = one(row.student_profiles);
+  if (!student) return null;
+
+  const allocations = (row.payment_allocations ?? []).map((a) => {
+    const sc = one(a.student_charges);
+    const fs = one(sc?.fee_structures ?? null);
+    const cs = one(fs?.class_subjects ?? null);
+    const subjectName =
+      fs?.fee_type === "MATERIALS" ? fs.description ?? "Materials" : one(cs?.subjects ?? null)?.name ?? "—";
+    return { subject_name: subjectName, amount_allocated: a.amount_allocated };
+  });
+
+  return {
+    id: row.id,
+    amount: row.amount,
+    payment_method: row.payment_method,
+    reference: row.reference,
+    payment_date: row.payment_date,
+    notes: row.notes,
+    recorded_by_name: recorder ? `${recorder.first_name} ${recorder.last_name}` : null,
+    allocations,
+    student_name: `${student.first_name} ${student.last_name}`,
+    student_number: student.student_number,
+  };
+}
+
 export interface RecentPaymentRow {
   id: string;
   student_id: string;
@@ -81,6 +172,60 @@ export interface RecentPaymentRow {
   amount: number;
   payment_method: PaymentMethod;
   payment_date: string;
+}
+
+export interface AllPaymentRow {
+  id: string;
+  student_id: string;
+  student_name: string;
+  student_number: string;
+  amount: number;
+  payment_method: PaymentMethod;
+  reference: string | null;
+  payment_date: string;
+}
+
+// Every payment/receipt in the org, newest first — backs the Receipts page
+// so an admin can find and print any student's receipt without first
+// navigating into that student's own profile.
+export async function listAllPayments(): Promise<AllPaymentRow[]> {
+  const { supabase, organizationId } = await requireAdmin();
+
+  const { data } = await supabase
+    .from("payments")
+    .select(
+      "id, student_id, amount, payment_method, reference, payment_date, student_profiles!inner(first_name, last_name, student_number, organization_id)"
+    )
+    .eq("student_profiles.organization_id", organizationId)
+    .order("payment_date", { ascending: false });
+
+  type SP =
+    | { first_name: string; last_name: string; student_number: string }
+    | { first_name: string; last_name: string; student_number: string }[]
+    | null;
+  type Raw = {
+    id: string;
+    student_id: string;
+    amount: number;
+    payment_method: PaymentMethod;
+    reference: string | null;
+    payment_date: string;
+    student_profiles: SP;
+  };
+
+  return ((data as Raw[]) ?? []).map((row) => {
+    const s = one(row.student_profiles);
+    return {
+      id: row.id,
+      student_id: row.student_id,
+      student_name: s ? `${s.first_name} ${s.last_name}` : "—",
+      student_number: s?.student_number ?? "—",
+      amount: row.amount,
+      payment_method: row.payment_method,
+      reference: row.reference,
+      payment_date: row.payment_date,
+    };
+  });
 }
 
 export async function listRecentPayments(limit = 8): Promise<RecentPaymentRow[]> {
@@ -172,8 +317,16 @@ export async function createPayment(input: {
       }
     }
 
+    await notifyParentsOfStudent(
+      input.student_id,
+      "Payment received",
+      `A payment of GH₵${input.amount} was recorded${input.reference ? ` (ref: ${input.reference})` : ""}. A printable receipt is available on the Fees & Payments page.`,
+      "PAYMENT_RECEIVED"
+    );
+
     revalidatePath("/admin/fees");
     revalidatePath(`/admin/students/${input.student_id}`);
+    revalidatePath("/parent/fees");
     return { success: true, data: undefined };
   } catch (e) {
     return { success: false, error: (e as Error).message };
@@ -214,7 +367,7 @@ export async function getFinancialDashboardStats(): Promise<FinancialDashboardSt
   const { data: allocations } = await supabase
     .from("payment_allocations")
     .select(
-      "amount_allocated, payment_id, student_charges(fee_structures(class_subjects(classes(name, organization_id), subjects(name))))"
+      "amount_allocated, payment_id, student_charges(fee_structures(fee_type, description, classes(name), class_subjects(classes(name), subjects(name))))"
     )
     .in(
       "payment_id",
@@ -222,10 +375,14 @@ export async function getFinancialDashboardStats(): Promise<FinancialDashboardSt
     );
 
   type Nested = { name: string } | { name: string }[] | null;
-  type ClassNested = { name: string; organization_id: string } | { name: string; organization_id: string }[] | null;
-  type CS = { classes: ClassNested; subjects: Nested } | { classes: ClassNested; subjects: Nested }[] | null;
-  type FS = { class_subjects: CS } | { class_subjects: CS }[] | null;
-  type SC = { fee_structures: FS } | { fee_structures: FS }[] | null;
+  type CS = { classes: Nested; subjects: Nested } | { classes: Nested; subjects: Nested }[] | null;
+  type FS = {
+    fee_type: "SUBJECT" | "MATERIALS";
+    description: string | null;
+    classes: Nested;
+    class_subjects: CS;
+  };
+  type SC = { fee_structures: FS | FS[] | null } | { fee_structures: FS | FS[] | null }[] | null;
   type AllocRaw = { amount_allocated: number; student_charges: SC };
 
   const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
@@ -237,8 +394,9 @@ export async function getFinancialDashboardStats(): Promise<FinancialDashboardSt
     const sc = one(a.student_charges);
     const fs = one(sc?.fee_structures ?? null);
     const cs = one(fs?.class_subjects ?? null);
-    const subjectName = one(cs?.subjects ?? null)?.name ?? "—";
-    const className = one(cs?.classes ?? null)?.name ?? "—";
+    const isMaterials = fs?.fee_type === "MATERIALS";
+    const subjectName = isMaterials ? fs.description ?? "Materials" : one(cs?.subjects ?? null)?.name ?? "—";
+    const className = isMaterials ? one(fs.classes)?.name ?? "—" : one(cs?.classes ?? null)?.name ?? "—";
     bySubject.set(subjectName, (bySubject.get(subjectName) ?? 0) + a.amount_allocated);
     byClass.set(className, (byClass.get(className) ?? 0) + a.amount_allocated);
   });

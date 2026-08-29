@@ -19,6 +19,18 @@ export function Tabs({
   className?: string;
 }) {
   const [value, setValue] = React.useState(defaultValue);
+
+  // Lets a link elsewhere in the app deep-link straight to a specific tab
+  // (e.g. /admin/settings#academic) instead of just landing on the default
+  // and making the reader hunt for the right one themselves. Checked only
+  // once after mount so server and client render the same initial content
+  // (no hydration mismatch).
+  React.useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash) setValue(hash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <TabsContext.Provider value={{ value, setValue }}>
       <div className={className}>{children}</div>

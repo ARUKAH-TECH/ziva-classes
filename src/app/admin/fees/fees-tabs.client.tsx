@@ -10,6 +10,7 @@ import type { OutstandingRow } from "@/lib/actions/charges";
 import type { ClassSubjectTeacherOption } from "@/lib/actions/schedules";
 import type { AcademicYear } from "@/lib/actions/academic-years";
 import type { Term } from "@/lib/actions/terms";
+import type { ClassRow } from "@/lib/actions/classes";
 
 export function FeesTabs({
   stats,
@@ -19,6 +20,7 @@ export function FeesTabs({
   classSubjectOptions,
   years,
   terms,
+  classes,
 }: {
   stats: FinancialDashboardStats;
   recentPayments: RecentPaymentRow[];
@@ -27,6 +29,7 @@ export function FeesTabs({
   classSubjectOptions: ClassSubjectTeacherOption[];
   years: AcademicYear[];
   terms: Term[];
+  classes: ClassRow[];
 }) {
   return (
     <Tabs defaultValue="overview">
@@ -46,6 +49,7 @@ export function FeesTabs({
           classSubjectOptions={classSubjectOptions}
           years={years}
           terms={terms}
+          classes={classes}
         />
       </TabsContent>
 

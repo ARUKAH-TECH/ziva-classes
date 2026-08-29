@@ -8,19 +8,26 @@ import { z } from "zod";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_HOME_PATH, type UserRole } from "@/lib/permissions/roles";
+import { resolveLoginEmailById } from "@/lib/actions/auth-lookup";
 import { ZivaLogo } from "@/components/domain/ziva-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ForgotPasswordDialog } from "./forgot-password-dialog.client";
 
-const loginSchema = z.object({
+const emailLoginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
   password: z.string().min(1, "Password is required"),
 });
+type EmailLoginForm = z.infer<typeof emailLoginSchema>;
 
-type LoginForm = z.infer<typeof loginSchema>;
+const idLoginSchema = z.object({
+  loginId: z.string().min(1, "ID is required"),
+  password: z.string().min(1, "Password is required"),
+});
+type IdLoginForm = z.infer<typeof idLoginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,22 +35,17 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
+  const emailForm = useForm<EmailLoginForm>({ resolver: zodResolver(emailLoginSchema) });
+  const idForm = useForm<IdLoginForm>({ resolver: zodResolver(idLoginSchema) });
 
-  async function onSubmit(values: LoginForm) {
-    setServerError(null);
-    setSubmitting(true);
+  async function completeSignIn(email: string, password: string, genericErrorMessage: string) {
     const supabase = createClient();
 
-    const { data, error } = await supabase.auth.signInWithPassword(values);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.user) {
       setSubmitting(false);
-      setServerError("Incorrect email or password. Please try again.");
+      setServerError(genericErrorMessage);
       return;
     }
 
@@ -65,6 +67,26 @@ export default function LoginPage() {
     const role = (profile as { role: UserRole }).role;
     router.push(ROLE_HOME_PATH[role]);
     router.refresh();
+  }
+
+  async function onEmailSubmit(values: EmailLoginForm) {
+    setServerError(null);
+    setSubmitting(true);
+    await completeSignIn(values.email, values.password, "Incorrect email or password. Please try again.");
+  }
+
+  async function onIdSubmit(values: IdLoginForm) {
+    setServerError(null);
+    setSubmitting(true);
+
+    const email = await resolveLoginEmailById(values.loginId);
+    if (!email) {
+      setSubmitting(false);
+      setServerError("Incorrect ID or password. Please try again.");
+      return;
+    }
+
+    await completeSignIn(email, values.password, "Incorrect ID or password. Please try again.");
   }
 
   return (
@@ -90,52 +112,107 @@ export default function LoginPage() {
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? "email-error" : undefined}
-                {...register("email")}
-              />
-              {errors.email && (
-                <p id="email-error" className="mt-1 text-sm text-error">
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
+          <Tabs defaultValue="email">
+            <TabsList className="mb-5">
+              <TabsTrigger value="email">Email</TabsTrigger>
+              <TabsTrigger value="id">ID</TabsTrigger>
+            </TabsList>
 
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                aria-invalid={!!errors.password}
-                aria-describedby={errors.password ? "password-error" : undefined}
-                {...register("password")}
-              />
-              {errors.password && (
-                <p id="password-error" className="mt-1 text-sm text-error">
-                  {errors.password.message}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => setForgotOpen(true)}
-                className="mt-1.5 text-sm text-royal-600 hover:underline"
-              >
-                Forgot password?
-              </button>
-            </div>
+            <TabsContent value="email">
+              <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} noValidate className="space-y-4">
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    aria-invalid={!!emailForm.formState.errors.email}
+                    aria-describedby={emailForm.formState.errors.email ? "email-error" : undefined}
+                    {...emailForm.register("email")}
+                  />
+                  {emailForm.formState.errors.email && (
+                    <p id="email-error" className="mt-1 text-sm text-error">
+                      {emailForm.formState.errors.email.message}
+                    </p>
+                  )}
+                </div>
 
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Signing in..." : "Sign in"}
-            </Button>
-          </form>
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    aria-invalid={!!emailForm.formState.errors.password}
+                    aria-describedby={emailForm.formState.errors.password ? "password-error" : undefined}
+                    {...emailForm.register("password")}
+                  />
+                  {emailForm.formState.errors.password && (
+                    <p id="password-error" className="mt-1 text-sm text-error">
+                      {emailForm.formState.errors.password.message}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setForgotOpen(true)}
+                    className="mt-1.5 text-sm text-royal-600 hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting ? "Signing in..." : "Sign in"}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="id">
+              <form onSubmit={idForm.handleSubmit(onIdSubmit)} noValidate className="space-y-4">
+                <div>
+                  <Label htmlFor="login-id">Student, Teacher, or Parent ID</Label>
+                  <Input
+                    id="login-id"
+                    type="text"
+                    autoComplete="username"
+                    placeholder="ZIVA-2026-0001"
+                    aria-invalid={!!idForm.formState.errors.loginId}
+                    aria-describedby={idForm.formState.errors.loginId ? "login-id-error" : undefined}
+                    {...idForm.register("loginId")}
+                  />
+                  {idForm.formState.errors.loginId && (
+                    <p id="login-id-error" className="mt-1 text-sm text-error">
+                      {idForm.formState.errors.loginId.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="id-password">Password</Label>
+                  <Input
+                    id="id-password"
+                    type="password"
+                    autoComplete="current-password"
+                    aria-invalid={!!idForm.formState.errors.password}
+                    aria-describedby={idForm.formState.errors.password ? "id-password-error" : undefined}
+                    {...idForm.register("password")}
+                  />
+                  {idForm.formState.errors.password && (
+                    <p id="id-password-error" className="mt-1 text-sm text-error">
+                      {idForm.formState.errors.password.message}
+                    </p>
+                  )}
+                  <p className="mt-1.5 text-sm text-ink-500">
+                    Lost your password? Ask your school admin to reset it.
+                  </p>
+                </div>
+
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting ? "Signing in..." : "Sign in"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
 
           <p className="mt-4 text-center text-sm text-ink-500">
             Don&apos;t have an account?{" "}

@@ -28,7 +28,7 @@ export default async function TeacherAttendancePage() {
             <EmptyState
               icon={ClipboardCheck}
               title="No sessions today"
-              description="Nothing scheduled for today yet, or your admin hasn't generated today's sessions from the timetable."
+              description="Nothing scheduled for today yet. This depends on your school admin setting up a weekly timetable and generating today's sessions from it — ask them if this seems wrong for an ordinary school day."
             />
           ) : (
             <Table>

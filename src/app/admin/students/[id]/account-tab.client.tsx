@@ -1,39 +1,49 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ResetPasswordButton } from "@/components/domain/reset-password-button.client";
+import { ViewPasswordButton } from "@/components/domain/view-password-button.client";
 import { provisionStudentAccount } from "@/lib/actions/students";
+
+// Mirrors isJhsOrShsLevel in lib/actions/students.ts — a student's own
+// login is only offered for JHS/SHS; Primary students' portal access is
+// exclusively through their parent's account.
+function isJhsOrShsLevel(levelName: string | null): boolean {
+  return /^\s*(JHS|SHS)\b/i.test(levelName ?? "");
+}
 
 export function AccountTab({
   studentId,
+  studentNumber,
   hasAccount,
-  accountEmail,
-  suggestedEmail,
+  accountUserId,
+  academicLevelName,
+  canViewPassword,
 }: {
   studentId: string;
+  studentNumber: string;
   hasAccount: boolean;
-  accountEmail: string | null;
-  suggestedEmail: string | null;
+  accountUserId: string | null;
+  academicLevelName: string | null;
+  canViewPassword: boolean;
 }) {
-  const [email, setEmail] = useState(suggestedEmail ?? "");
+  const eligible = isJhsOrShsLevel(academicLevelName);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<{ email: string; tempPassword: string } | null>(null);
+  const [created, setCreated] = useState<{ tempPassword: string } | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onCreate() {
     setError(null);
     setBusy(true);
-    const result = await provisionStudentAccount(studentId, email);
+    const result = await provisionStudentAccount(studentId);
     setBusy(false);
     if (result.success) {
-      setCreated({ email, tempPassword: result.data.tempPassword });
+      setCreated({ tempPassword: result.data.tempPassword });
     } else {
       setError(result.error);
     }
@@ -51,15 +61,21 @@ export function AccountTab({
         </CardHeader>
         <CardContent>
           <Alert variant="success" className="mb-4">
-            {created.email} can now sign in. Share these temporary credentials securely — they should
-            change their password after first login.
+            {studentNumber} can now sign in on the ID tab of the login page. Their password is a
+            linked parent&apos;s phone number (or a temporary one if no parent is linked yet) —
+            share these credentials securely.
           </Alert>
-          <div className="space-y-2 text-sm">
-            <p>
-              <span className="font-medium text-navy-900">Email:</span> {created.email}
-            </p>
-            <p>
-              <span className="font-medium text-navy-900">Password:</span> {created.tempPassword}
+          <div className="rounded border border-gray-300 bg-surface p-3 font-mono text-sm">
+            <p>Student ID: {studentNumber}</p>
+            <p className="flex items-center gap-2">
+              Password: {created.tempPassword}
+              <button
+                onClick={() => navigator.clipboard.writeText(created.tempPassword)}
+                className="rounded p-1 text-ink-500 hover:bg-gray-100"
+                aria-label="Copy password"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
             </p>
           </div>
         </CardContent>
@@ -70,16 +86,44 @@ export function AccountTab({
   if (hasAccount) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Account</CardTitle>
+          <div className="flex items-center gap-2">
+            {accountUserId && <ResetPasswordButton userId={accountUserId} />}
+            {accountUserId && canViewPassword && <ViewPasswordButton userId={accountUserId} />}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
             <Badge variant="success">Active</Badge>
-            <span className="text-sm text-navy-900">{accountEmail}</span>
+            <span className="font-mono text-sm text-navy-900">{studentNumber}</span>
           </div>
           <p className="mt-2 text-sm text-ink-500">
-            This student can sign in to the Student Portal with this email.
+            This student signs in to the Student Portal with this Student ID and their password —
+            no email required. Their parent can also see this same information from their own
+            account.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!eligible) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Account</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-ink-500">
+            A student login of their own is only available for JHS and SHS students — their
+            parent&apos;s account is the primary way to view their portal (attendance, results,
+            fees, and more).{" "}
+            {academicLevelName
+              ? "This student isn't in a JHS or SHS class."
+              : "This student isn't enrolled in a class yet."}{" "}
+            Once they&apos;re enrolled in a JHS or SHS class, you can optionally create a login for
+            them here.
           </p>
         </CardContent>
       </Card>
@@ -93,30 +137,20 @@ export function AccountTab({
       </CardHeader>
       <CardContent>
         <p className="mb-4 text-sm text-ink-500">
-          This student doesn&apos;t have a Student Portal login yet. Create one to let them sign in and
-          see their own subjects, timetable, attendance, results, and assignments.
+          This student doesn&apos;t have a Student Portal login yet. Their parent can already view
+          their portal from their own account — creating a login here is optional, for JHS/SHS
+          students who&apos;d like to sign in with their own Student ID (
+          <span className="font-mono">{studentNumber}</span>) as well.
         </p>
         {error && (
           <Alert variant="error" className="mb-4">
             {error}
           </Alert>
         )}
-        <form onSubmit={onSubmit} className="max-w-sm space-y-4">
-          <div>
-            <Label htmlFor="account-email">Email</Label>
-            <Input
-              id="account-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <Button type="submit" disabled={busy}>
-            <KeyRound className="h-4 w-4" />
-            {busy ? "Creating..." : "Create login"}
-          </Button>
-        </form>
+        <Button onClick={onCreate} disabled={busy}>
+          <KeyRound className="h-4 w-4" />
+          {busy ? "Creating..." : "Create login"}
+        </Button>
       </CardContent>
     </Card>
   );

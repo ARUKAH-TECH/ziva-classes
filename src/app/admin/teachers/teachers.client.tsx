@@ -12,9 +12,17 @@ import { Dialog } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ResetPasswordButton } from "@/components/domain/reset-password-button.client";
+import { ViewPasswordButton } from "@/components/domain/view-password-button.client";
 import { createTeacher, setTeacherActive, type TeacherRow } from "@/lib/actions/teachers";
 
-export function TeachersClient({ initialTeachers }: { initialTeachers: TeacherRow[] }) {
+export function TeachersClient({
+  initialTeachers,
+  canViewPassword,
+}: {
+  initialTeachers: TeacherRow[];
+  canViewPassword: boolean;
+}) {
   const [teachers, setTeachers] = useState(initialTeachers);
   const [addOpen, setAddOpen] = useState(false);
 
@@ -53,7 +61,7 @@ export function TeachersClient({ initialTeachers }: { initialTeachers: TeacherRo
                       {t.first_name} {t.last_name}
                     </Link>
                   </TD>
-                  <TD>{t.email ?? "—"}</TD>
+                  <TD>{t.email ?? (t.login_id ? <span className="font-mono text-xs">{t.login_id}</span> : "—")}</TD>
                   <TD>{t.employee_number ?? "—"}</TD>
                   <TD>{t.specialization ?? "—"}</TD>
                   <TD>
@@ -68,6 +76,8 @@ export function TeachersClient({ initialTeachers }: { initialTeachers: TeacherRo
                           Manage
                         </Button>
                       </Link>
+                      <ResetPasswordButton userId={t.user_id} />
+                      {canViewPassword && <ViewPasswordButton userId={t.user_id} />}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -108,7 +118,9 @@ function AddTeacherDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const [specialization, setSpecialization] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<{ email: string; tempPassword: string } | null>(null);
+  const [created, setCreated] = useState<{ email: string; tempPassword: string; loginId: string | null } | null>(
+    null
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -125,7 +137,7 @@ function AddTeacherDialog({ open, onClose }: { open: boolean; onClose: () => voi
     });
     setBusy(false);
     if (result.success) {
-      setCreated({ email, tempPassword: result.data.tempPassword });
+      setCreated({ email, tempPassword: result.data.tempPassword, loginId: result.data.loginId });
     } else {
       setError(result.error);
     }
@@ -140,11 +152,17 @@ function AddTeacherDialog({ open, onClose }: { open: boolean; onClose: () => voi
       <Dialog open onClose={finish} title="Teacher account created">
         <div className="space-y-4">
           <Alert variant="success">
-            {created.email} can now sign in. Share these temporary credentials securely — they
-            should change their password after first login.
+            {created.loginId
+              ? `${firstName} ${lastName} can now sign in on the ID tab of the login page.`
+              : `${created.email} can now sign in.`}{" "}
+            Their password is their phone number — share these credentials securely.
           </Alert>
           <div className="rounded border border-gray-300 bg-surface p-3 font-mono text-sm">
-            <p>Email: {created.email}</p>
+            {created.loginId ? (
+              <p>Login ID: {created.loginId}</p>
+            ) : (
+              <p>Email: {created.email}</p>
+            )}
             <p className="flex items-center gap-2">
               Password: {created.tempPassword}
               <button
@@ -179,12 +197,16 @@ function AddTeacherDialog({ open, onClose }: { open: boolean; onClose: () => voi
           </div>
         </div>
         <div>
-          <Label htmlFor="t-email">Email</Label>
-          <Input id="t-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Label htmlFor="t-email">Email (optional)</Label>
+          <Input id="t-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <p className="mt-1 text-xs text-ink-500">
+            Leave blank to generate a Teacher ID they can sign in with instead of an email.
+          </p>
         </div>
         <div>
           <Label htmlFor="t-phone">Phone</Label>
-          <Input id="t-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Input id="t-phone" value={phone} onChange={(e) => setPhone(e.target.value)} required minLength={6} />
+          <p className="mt-1 text-xs text-ink-500">This becomes the teacher&apos;s login password.</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>

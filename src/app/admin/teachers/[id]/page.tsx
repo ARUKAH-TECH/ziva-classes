@@ -5,16 +5,21 @@ import { getTeacher } from "@/lib/actions/teachers";
 import { listTeacherAssignments, listAssignableClassSubjects } from "@/lib/actions/teacher-assignments";
 import { listAcademicYears } from "@/lib/actions/academic-years";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { ResetPasswordButton } from "@/components/domain/reset-password-button.client";
+import { ViewPasswordButton } from "@/components/domain/view-password-button.client";
+import { isSuperAdmin } from "@/lib/actions/user-admin";
 import { TeacherAssignmentsClient } from "./assignments.client";
+import { TeacherProfileCard } from "./profile-card.client";
+import { DeleteTeacherButton } from "./delete-teacher-button.client";
 
 export default async function TeacherDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [teacher, assignments, assignable, years] = await Promise.all([
+  const [teacher, assignments, assignable, years, canViewPassword] = await Promise.all([
     getTeacher(id),
     listTeacherAssignments(id),
     listAssignableClassSubjects(),
     listAcademicYears(),
+    isSuperAdmin(),
   ]);
 
   if (!teacher) notFound();
@@ -28,25 +33,27 @@ export default async function TeacherDetailPage({ params }: { params: Promise<{ 
         >
           <ArrowLeft className="h-4 w-4" /> Back to teachers
         </Link>
-        <div className="flex items-center gap-3">
-          <h1>
-            {teacher.first_name} {teacher.last_name}
-          </h1>
-          <Badge variant={teacher.is_active ? "success" : "neutral"}>
-            {teacher.is_active ? "Active" : "Inactive"}
-          </Badge>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1>
+              {teacher.first_name} {teacher.last_name}
+            </h1>
+            <Badge variant={teacher.is_active ? "success" : "neutral"}>
+              {teacher.is_active ? "Active" : "Inactive"}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <ResetPasswordButton userId={teacher.user_id} />
+            {canViewPassword && <ViewPasswordButton userId={teacher.user_id} />}
+            <DeleteTeacherButton
+              userId={teacher.user_id}
+              fullName={`${teacher.first_name} ${teacher.last_name}`}
+            />
+          </div>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="grid grid-cols-1 gap-4 py-5 sm:grid-cols-3">
-          <Field label="Email" value={teacher.email ?? "—"} />
-          <Field label="Phone" value={teacher.phone ?? "—"} />
-          <Field label="Employee number" value={teacher.employee_number ?? "—"} />
-          <Field label="Qualification" value={teacher.qualification ?? "—"} />
-          <Field label="Specialization" value={teacher.specialization ?? "—"} />
-        </CardContent>
-      </Card>
+      <TeacherProfileCard teacher={teacher} />
 
       <TeacherAssignmentsClient
         teacherId={id}
@@ -54,15 +61,6 @@ export default async function TeacherDetailPage({ params }: { params: Promise<{ 
         assignable={assignable}
         years={years}
       />
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-ink-500">{label}</p>
-      <p className="mt-0.5 text-sm text-navy-900">{value}</p>
     </div>
   );
 }

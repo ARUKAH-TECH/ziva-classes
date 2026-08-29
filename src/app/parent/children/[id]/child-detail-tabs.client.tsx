@@ -3,14 +3,18 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Package } from "lucide-react";
 import type { CurrentEnrollment } from "@/lib/actions/students";
 import type { StudentSubjectRow } from "@/lib/actions/student-subjects";
 import type { AttendanceSummary } from "@/lib/actions/attendance";
 import type { StudentPerformanceSummary } from "@/lib/actions/scores";
 import type { StudentLocation } from "@/lib/actions/student-location";
 import type { StudentNeedRow } from "@/lib/actions/student-needs";
+import type { ClassMaterialRow } from "@/lib/actions/class-materials";
 import { ChildLocationPanel } from "./location-panel.client";
 import { ChildPhotoPanel } from "./photo-panel.client";
+import { PerformanceChart } from "@/components/domain/performance-chart.client";
 
 export function ChildDetailTabs({
   studentId,
@@ -24,6 +28,7 @@ export function ChildDetailTabs({
   needs,
   canEditLocation,
   canEditPhoto,
+  materials,
 }: {
   studentId: string;
   photoUrl: string | null;
@@ -36,11 +41,13 @@ export function ChildDetailTabs({
   needs: StudentNeedRow[];
   canEditLocation: boolean;
   canEditPhoto: boolean;
+  materials: ClassMaterialRow[];
 }) {
   return (
     <Tabs defaultValue="overview">
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="materials">Materials</TabsTrigger>
         <TabsTrigger value="location">Location</TabsTrigger>
         <TabsTrigger value="photo">Photo</TabsTrigger>
         <TabsTrigger value="feedback">Teacher Feedback</TabsTrigger>
@@ -72,13 +79,14 @@ export function ChildDetailTabs({
               {subjects.length === 0 ? (
                 <p className="text-sm text-ink-500">No subjects enrolled yet.</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
+                <ul className="space-y-2">
                   {subjects.map((s) => (
-                    <Badge key={s.id} variant="royal">
-                      {s.subject_name}
-                    </Badge>
+                    <li key={s.id} className="flex items-center gap-2 text-sm">
+                      <Badge variant="royal">{s.subject_name}</Badge>
+                      <span className="text-ink-500">{s.teacher_name ?? "No teacher assigned yet"}</span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </CardContent>
           </Card>
@@ -88,17 +96,38 @@ export function ChildDetailTabs({
               <CardHeader>
                 <CardTitle>Performance by Subject</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {performance.subject_averages.map((s) => (
-                  <div key={s.subject_name} className="rounded border border-gray-300 px-3 py-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink-500">{s.subject_name}</p>
-                    <p className="text-sm font-semibold text-navy-900">{s.average_percentage}%</p>
-                  </div>
-                ))}
+              <CardContent>
+                <PerformanceChart data={performance.subject_averages} />
               </CardContent>
             </Card>
           )}
         </div>
+      </TabsContent>
+
+      <TabsContent value="materials">
+        <Card>
+          <CardHeader>
+            <CardTitle>Required Materials</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {materials.length === 0 ? (
+              <EmptyState
+                icon={Package}
+                title="No materials listed"
+                description="The school hasn't listed required books or items for this class yet."
+              />
+            ) : (
+              <ul className="divide-y divide-gray-300 rounded border border-gray-300">
+                {materials.map((m) => (
+                  <li key={m.id} className="px-3 py-2.5 text-sm">
+                    <span className="font-medium text-navy-900">{m.name}</span>
+                    {m.description && <span className="text-ink-500"> — {m.description}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       </TabsContent>
 
       <TabsContent value="location">

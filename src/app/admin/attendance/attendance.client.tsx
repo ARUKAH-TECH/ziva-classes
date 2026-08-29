@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { RefreshCw, ClipboardCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { RefreshCw, ClipboardCheck, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
-import { EmptyState } from "@/components/ui/empty-state";
 import { listSessionsForDate, generateSessionsForDate, type SessionRow } from "@/lib/actions/sessions";
 
 function shiftDate(date: string, days: number) {
@@ -71,11 +70,21 @@ export function AttendanceClient({
         {loading ? (
           <p className="text-sm text-ink-500">Loading...</p>
         ) : sessions.length === 0 ? (
-          <EmptyState
-            icon={ClipboardCheck}
-            title="No sessions on this date"
-            description="Use 'Generate sessions from schedule' to create today's sessions from your recurring timetable, or add one manually from Timetable."
-          />
+          <div className="rounded border border-warning/30 bg-warning/5 p-4 text-center">
+            <ClipboardCheck className="mx-auto mb-2 h-8 w-8 text-ink-500" />
+            <p className="mb-1 font-medium text-navy-900">No sessions on this date</p>
+            <p className="mb-3 text-sm text-ink-500">
+              Sessions come from your recurring weekly timetable — if none exist yet, teachers have
+              nothing to take attendance for. Add a weekly schedule first, then use &quot;Generate
+              sessions from schedule&quot; above to create today&apos;s sessions from it.
+            </p>
+            <Link
+              href="/admin/timetable"
+              className="inline-flex items-center gap-1 text-sm font-medium text-royal-600 hover:underline"
+            >
+              Go to Timetable to add a schedule <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         ) : (
           <Table>
             <THead>

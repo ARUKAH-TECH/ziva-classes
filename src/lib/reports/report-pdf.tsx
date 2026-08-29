@@ -37,12 +37,14 @@ const styles = StyleSheet.create({
   tr: { flexDirection: "row" },
   th: { backgroundColor: NAVY, color: "#FFFFFF", padding: 4, fontSize: 8, fontWeight: 700 },
   td: { padding: 4, fontSize: 8, borderTopWidth: 1, borderTopColor: BORDER },
-  colSubject: { width: "16%" },
-  colAssessments: { width: "28%" },
-  colAvg: { width: "10%", textAlign: "right" },
-  colGrade: { width: "10%", textAlign: "center" },
-  colTeacher: { width: "16%" },
-  colComment: { width: "20%" },
+  colSubject: { width: "13%" },
+  colAssessments: { width: "21%" },
+  colCA: { width: "8%", textAlign: "right" },
+  colExam: { width: "8%", textAlign: "right" },
+  colAvg: { width: "9%", textAlign: "right" },
+  colGrade: { width: "9%", textAlign: "center" },
+  colTeacher: { width: "14%" },
+  colComment: { width: "18%" },
   twoCol: { flexDirection: "row", gap: 16, marginTop: 4 },
   col: { flex: 1 },
   commentBox: { borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, padding: 6, fontSize: 8, minHeight: 24 },
@@ -124,7 +126,9 @@ export function TerminalReportPDF({
           <View style={styles.tr}>
             <Text style={[styles.th, styles.colSubject]}>Subject</Text>
             <Text style={[styles.th, styles.colAssessments]}>Assessments</Text>
-            <Text style={[styles.th, styles.colAvg]}>Avg %</Text>
+            <Text style={[styles.th, styles.colCA]}>CA %</Text>
+            <Text style={[styles.th, styles.colExam]}>Exam %</Text>
+            <Text style={[styles.th, styles.colAvg]}>Total %</Text>
             <Text style={[styles.th, styles.colGrade]}>Grade</Text>
             <Text style={[styles.th, styles.colTeacher]}>Teacher</Text>
             <Text style={[styles.th, styles.colComment]}>Comment</Text>
@@ -140,7 +144,9 @@ export function TerminalReportPDF({
                 <Text style={[styles.td, styles.colAssessments]}>
                   {s.assessments.length === 0 ? "—" : s.assessments.map((a) => `${a.name} (${a.score}/${a.maximum_score})`).join(", ")}
                 </Text>
-                <Text style={[styles.td, styles.colAvg]}>
+                <Text style={[styles.td, styles.colCA]}>{s.ca_percentage !== null ? `${s.ca_percentage}%` : "—"}</Text>
+                <Text style={[styles.td, styles.colExam]}>{s.exam_percentage !== null ? `${s.exam_percentage}%` : "—"}</Text>
+                <Text style={[styles.td, styles.colAvg, { fontWeight: 700 }]}>
                   {s.subject_average_percentage !== null ? `${s.subject_average_percentage}%` : "—"}
                 </Text>
                 <Text style={[styles.td, styles.colGrade, { color: GOLD, fontWeight: 700 }]}>{s.subject_grade ?? "—"}</Text>
@@ -156,6 +162,14 @@ export function TerminalReportPDF({
             <Text style={styles.sectionTitle}>Performance Summary</Text>
             <FieldRow label="Overall Average" value={payload.overall_average !== null ? `${payload.overall_average}%` : "—"} />
             <FieldRow label="Overall Grade" value={payload.overall_grade ?? "—"} />
+            <FieldRow
+              label="Total Score"
+              value={
+                payload.overall_total_possible > 0
+                  ? `${payload.overall_total_score} out of ${payload.overall_total_possible}`
+                  : "—"
+              }
+            />
             <FieldRow label="Number of Subjects" value={String(payload.subject_count)} />
             <FieldRow label="Strongest Subject" value={payload.strongest_subject ?? "—"} />
             <FieldRow
@@ -168,8 +182,7 @@ export function TerminalReportPDF({
           </View>
           <View style={styles.col}>
             <Text style={styles.sectionTitle}>Attendance</Text>
-            <FieldRow label="Total Scheduled Sessions" value={String(payload.attendance.total_sessions)} />
-            <FieldRow label="Present" value={String(payload.attendance.present)} />
+            <FieldRow label="Attendance" value={`${payload.attendance.present} out of ${payload.attendance.total_sessions}`} />
             <FieldRow label="Absent" value={String(payload.attendance.absent)} />
             <FieldRow label="Late" value={String(payload.attendance.late)} />
             <FieldRow label="Excused" value={String(payload.attendance.excused)} />

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin, type ActionResult } from "@/lib/auth/require-admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface StudentParentRow {
   id: string; // parent_students.id
@@ -9,6 +10,7 @@ export interface StudentParentRow {
   first_name: string;
   last_name: string;
   email: string | null;
+  login_id: string | null;
   relationship: string | null;
   is_primary: boolean;
 }
@@ -22,7 +24,9 @@ export async function listStudentParents(studentId: string): Promise<StudentPare
 
   const { data } = await supabase
     .from("parent_students")
-    .select("id, parent_id, relationship, is_primary, parent_profiles(users(first_name, last_name, email))")
+    .select(
+      "id, parent_id, relationship, is_primary, parent_profiles(login_id, users(first_name, last_name, email))"
+    )
     .eq("student_id", studentId);
 
   type U = { first_name: string; last_name: string; email: string | null };
@@ -31,7 +35,10 @@ export async function listStudentParents(studentId: string): Promise<StudentPare
     parent_id: string;
     relationship: string | null;
     is_primary: boolean;
-    parent_profiles: { users: U | U[] | null } | { users: U | U[] | null }[] | null;
+    parent_profiles:
+      | { login_id: string | null; users: U | U[] | null }
+      | { login_id: string | null; users: U | U[] | null }[]
+      | null;
   };
 
   return ((data as Raw[]) ?? []).map((row) => {
@@ -42,7 +49,8 @@ export async function listStudentParents(studentId: string): Promise<StudentPare
       parent_id: row.parent_id,
       first_name: u?.first_name ?? "",
       last_name: u?.last_name ?? "",
-      email: u?.email ?? null,
+      email: profile?.login_id ? null : u?.email ?? null,
+      login_id: profile?.login_id ?? null,
       relationship: row.relationship,
       is_primary: row.is_primary,
     };
@@ -74,6 +82,27 @@ export async function linkParentToStudent(
         success: false,
         error: error.code === "23505" ? "This parent is already linked to this student." : error.message,
       };
+    }
+
+    // Password policy: a student's login uses their parent's phone number.
+    // If the student already has their own login, sync it now that a
+    // parent (and their phone) is known — covers students created before
+    // any parent was linked.
+    const admin = createAdminClient();
+    const [{ data: student }, { data: parent }] = await Promise.all([
+      admin.from("student_profiles").select("optional_user_id").eq("id", studentId).single(),
+      admin.from("parent_profiles").select("users(phone)").eq("id", parentId).single(),
+    ]);
+    const studentUserId = (student as { optional_user_id: string | null } | null)?.optional_user_id;
+    const parentUsersRaw = (parent as { users: { phone: string | null } | { phone: string | null }[] | null } | null)
+      ?.users;
+    const parentPhone = Array.isArray(parentUsersRaw) ? parentUsersRaw[0]?.phone : parentUsersRaw?.phone;
+
+    if (studentUserId && parentPhone) {
+      const { error: pwError } = await admin.auth.admin.updateUserById(studentUserId, { password: parentPhone });
+      if (!pwError) {
+        await admin.from("users").update({ current_password: parentPhone }).eq("id", studentUserId);
+      }
     }
 
     revalidatePath(`/admin/students/${studentId}`);

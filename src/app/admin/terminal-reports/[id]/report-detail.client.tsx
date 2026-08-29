@@ -15,6 +15,7 @@ import {
   updateReportComments,
   generateReport,
   type FullReport,
+  type ReportHistoryPoint,
 } from "@/lib/actions/terminal-reports";
 
 export function ReportDetailClient({
@@ -22,11 +23,13 @@ export function ReportDetailClient({
   photoUrl,
   orgName,
   orgMotto,
+  history = [],
 }: {
   report: FullReport;
   photoUrl: string | null;
   orgName: string;
   orgMotto: string;
+  history?: ReportHistoryPoint[];
 }) {
   const [busy, setBusy] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -117,6 +120,7 @@ export function ReportDetailClient({
           photoUrl={photoUrl}
           orgName={orgName}
           orgMotto={orgMotto}
+          history={history}
         />
       </div>
 

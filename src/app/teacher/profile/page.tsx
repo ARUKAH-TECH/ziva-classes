@@ -18,6 +18,7 @@ export default async function TeacherProfilePage() {
         phone={teacher?.phone ?? null}
         revalidatePathAfter="/teacher/profile"
         fields={[
+          ...(teacher?.login_id ? [{ label: "Login ID", value: teacher.login_id }] : []),
           { label: "Employee number", value: teacher?.employee_number ?? "—" },
           { label: "Qualification", value: teacher?.qualification ?? "—" },
           { label: "Specialization", value: teacher?.specialization ?? "—" },

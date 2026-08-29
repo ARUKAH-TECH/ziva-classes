@@ -18,6 +18,7 @@ export default async function ParentProfilePage() {
         phone={parent?.phone ?? null}
         revalidatePathAfter="/parent/profile"
         fields={[
+          ...(parent?.login_id ? [{ label: "Login ID", value: parent.login_id }] : []),
           { label: "Occupation", value: parent?.occupation ?? "—" },
           { label: "Address", value: parent?.address ?? "—" },
         ]}

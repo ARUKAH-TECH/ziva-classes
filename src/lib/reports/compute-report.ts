@@ -7,6 +7,12 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? v[0] ?? null : v;
 }
 
+// CA = continuous assessment (everything that isn't the term's final exam).
+// subject_average_percentage already averages across every assessment type
+// including EXAMINATION, so it doubles as the subject's combined "Total" —
+// ca_percentage/exam_percentage break that same number down by type.
+const CA_ASSESSMENT_TYPES = new Set(["ASSIGNMENT", "QUIZ", "TEST", "PROJECT"]);
+
 export interface ReportSubject {
   subject_name: string;
   teacher_name: string;
@@ -14,6 +20,8 @@ export interface ReportSubject {
   subject_average_percentage: number | null;
   subject_grade: string | null;
   teacher_comment: string | null;
+  ca_percentage: number | null;
+  exam_percentage: number | null;
 }
 
 export type FeeStatus = "CLEARED" | "PARTIALLY_PAID" | "OUTSTANDING" | "NO_CHARGES";
@@ -34,11 +42,14 @@ export interface TerminalReportPayload {
   academic_year_name: string;
   term_id: string;
   term_name: string;
+  term_start_date: string;
   report_date: string;
 
   subjects: ReportSubject[];
   overall_average: number | null;
   overall_grade: string | null;
+  overall_total_score: number;
+  overall_total_possible: number;
 
   subject_count: number;
   strongest_subject: string | null;
@@ -122,6 +133,12 @@ async function computeSubjectAverages(
         ? Math.round((assessments.reduce((sum, a) => sum + a.percentage, 0) / assessments.length) * 10) / 10
         : null;
 
+    const average = (rows: typeof assessments) =>
+      rows.length > 0 ? Math.round((rows.reduce((sum, a) => sum + a.percentage, 0) / rows.length) * 10) / 10 : null;
+
+    const caPercentage = average(assessments.filter((a) => CA_ASSESSMENT_TYPES.has(a.assessment_type)));
+    const examPercentage = average(assessments.filter((a) => a.assessment_type === "EXAMINATION"));
+
     const latestComment = assessments.length > 0 ? assessments[assessments.length - 1].comment : null;
 
     subjects.push({
@@ -137,6 +154,8 @@ async function computeSubjectAverages(
       subject_average_percentage: subjectAverage,
       subject_grade: null, // filled in by caller once academic_level_id is known
       teacher_comment: latestComment,
+      ca_percentage: caPercentage,
+      exam_percentage: examPercentage,
     });
   }
 
@@ -219,6 +238,17 @@ export async function computeTerminalReport(
   }
   const overallGrade =
     overallAverage !== null && academicLevelId ? (await lookupGrade(supabase, academicLevelId, overallAverage))?.label ?? null : null;
+
+  // "Total out of number of subjects" — each graded subject contributes its
+  // own average as a mark out of 100, so N graded subjects gives a total
+  // out of N*100. Scoped to graded subjects only (matching overall_average)
+  // so a subject with no scores entered yet doesn't drag this down to look
+  // like a failing total.
+  const gradedForTotal = subjects.filter((s2) => s2.subject_average_percentage !== null);
+  const overallTotalScore = Math.round(
+    gradedForTotal.reduce((sum, s2) => sum + (s2.subject_average_percentage ?? 0), 0) * 10
+  ) / 10;
+  const overallTotalPossible = gradedForTotal.length * 100;
 
   const gradedSubjects = subjects.filter((s2) => s2.subject_average_percentage !== null);
   const strongest =
@@ -303,10 +333,13 @@ export async function computeTerminalReport(
     academic_year_name: one(t.academic_years)?.name ?? "—",
     term_id: t.id,
     term_name: t.name,
+    term_start_date: t.start_date,
     report_date: new Date().toISOString().slice(0, 10),
     subjects,
     overall_average: overallAverage,
     overall_grade: overallGrade,
+    overall_total_score: overallTotalScore,
+    overall_total_possible: overallTotalPossible,
     subject_count: subjects.length,
     strongest_subject: strongest,
     areas_for_improvement: areasForImprovement,

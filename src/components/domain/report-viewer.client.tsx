@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Printer, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TerminalReportView } from "@/components/domain/terminal-report-view";
-import type { FullReport } from "@/lib/actions/terminal-reports";
+import type { FullReport, ReportHistoryPoint } from "@/lib/actions/terminal-reports";
 
 export function ReportViewer({
   report,
@@ -12,12 +12,14 @@ export function ReportViewer({
   orgName,
   orgMotto,
   backHref,
+  history = [],
 }: {
   report: FullReport;
   photoUrl: string | null;
   orgName: string;
   orgMotto: string;
   backHref: string;
+  history?: ReportHistoryPoint[];
 }) {
   return (
     <div className="space-y-6">
@@ -47,6 +49,7 @@ export function ReportViewer({
           photoUrl={photoUrl}
           orgName={orgName}
           orgMotto={orgMotto}
+          history={history}
         />
       </div>
     </div>
