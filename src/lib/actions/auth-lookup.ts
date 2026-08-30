@@ -57,6 +57,73 @@ async function resolveParentLoginEmail(loginId: string): Promise<string | null> 
   return pickEmail(data as { users: { email: string | null } | { email: string | null }[] | null } | null);
 }
 
+export interface PasswordlessCredentials {
+  email: string;
+  password: string;
+}
+
+function pickCredentials(
+  row: { users: { email: string | null; current_password: string | null } | { email: string | null; current_password: string | null }[] | null } | null
+): PasswordlessCredentials | null {
+  if (!row) return null;
+  const u = Array.isArray(row.users) ? row.users[0] : row.users;
+  if (!u?.email || !u?.current_password) return null;
+  return { email: u.email, password: u.current_password };
+}
+
+async function resolveStudentPasswordlessLogin(studentNumber: string): Promise<PasswordlessCredentials | null> {
+  const trimmed = studentNumber.trim();
+  if (!trimmed) return null;
+
+  const admin = createAdminClient();
+
+  const { data } = await admin
+    .from("student_profiles")
+    .select("optional_user_id, users(email, current_password)")
+    .ilike("student_number", trimmed)
+    .maybeSingle();
+
+  if (!data) return null;
+  const row = data as {
+    optional_user_id: string | null;
+    users: { email: string | null; current_password: string | null } | { email: string | null; current_password: string | null }[] | null;
+  };
+  if (!row.optional_user_id) return null;
+
+  return pickCredentials(row);
+}
+
+async function resolveParentPasswordlessLogin(loginId: string): Promise<PasswordlessCredentials | null> {
+  const admin = createAdminClient();
+
+  const { data } = await admin
+    .from("parent_profiles")
+    .select("users(email, current_password)")
+    .ilike("login_id", loginId)
+    .maybeSingle();
+
+  return pickCredentials(
+    data as { users: { email: string | null; current_password: string | null } | { email: string | null; current_password: string | null }[] | null } | null
+  );
+}
+
+// Students and parents sign in with just their ID — no password prompt.
+// Their Supabase Auth password is a system-managed value (a student's is
+// their linked parent's phone number; see students.ts) mirrored in plain
+// text into users.current_password purely so it can be looked up here and
+// used to complete the sign-in behind the scenes. Teachers are unaffected —
+// this only resolves for the ZIVA-/PAR- prefixes; TCH- and anything else
+// still goes through the password-protected email/ID form.
+export async function resolvePasswordlessLoginById(id: string): Promise<PasswordlessCredentials | null> {
+  const trimmed = id.trim();
+  if (!trimmed) return null;
+
+  const upper = trimmed.toUpperCase();
+  if (upper.startsWith("ZIVA-")) return resolveStudentPasswordlessLogin(trimmed);
+  if (upper.startsWith("PAR-")) return resolveParentPasswordlessLogin(trimmed);
+  return null;
+}
+
 // Single entry point for the login page's ID tab — covers Student ID
 // (ZIVA-...), Teacher login ID (TCH-...), and Parent login ID (PAR-...).
 // Dispatches by prefix when recognized; falls back to trying all three so a

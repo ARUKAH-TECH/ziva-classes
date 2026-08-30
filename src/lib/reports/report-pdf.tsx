@@ -37,14 +37,11 @@ const styles = StyleSheet.create({
   tr: { flexDirection: "row" },
   th: { backgroundColor: NAVY, color: "#FFFFFF", padding: 4, fontSize: 8, fontWeight: 700 },
   td: { padding: 4, fontSize: 8, borderTopWidth: 1, borderTopColor: BORDER },
-  colSubject: { width: "13%" },
-  colAssessments: { width: "21%" },
-  colCA: { width: "8%", textAlign: "right" },
-  colExam: { width: "8%", textAlign: "right" },
-  colAvg: { width: "9%", textAlign: "right" },
-  colGrade: { width: "9%", textAlign: "center" },
-  colTeacher: { width: "14%" },
-  colComment: { width: "18%" },
+  colSubject: { width: "30%" },
+  colClassWork: { width: "20%", textAlign: "right" },
+  colExam: { width: "20%", textAlign: "right" },
+  colAvg: { width: "18%", textAlign: "right" },
+  colGrade: { width: "12%", textAlign: "center" },
   twoCol: { flexDirection: "row", gap: 16, marginTop: 4 },
   col: { flex: 1 },
   commentBox: { borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, padding: 6, fontSize: 8, minHeight: 24 },
@@ -125,13 +122,10 @@ export function TerminalReportPDF({
         <View style={styles.table}>
           <View style={styles.tr}>
             <Text style={[styles.th, styles.colSubject]}>Subject</Text>
-            <Text style={[styles.th, styles.colAssessments]}>Assessments</Text>
-            <Text style={[styles.th, styles.colCA]}>CA %</Text>
-            <Text style={[styles.th, styles.colExam]}>Exam %</Text>
-            <Text style={[styles.th, styles.colAvg]}>Total %</Text>
+            <Text style={[styles.th, styles.colClassWork]}>Class Work (50%)</Text>
+            <Text style={[styles.th, styles.colExam]}>Exam (50%)</Text>
+            <Text style={[styles.th, styles.colAvg]}>Total (100%)</Text>
             <Text style={[styles.th, styles.colGrade]}>Grade</Text>
-            <Text style={[styles.th, styles.colTeacher]}>Teacher</Text>
-            <Text style={[styles.th, styles.colComment]}>Comment</Text>
           </View>
           {payload.subjects.length === 0 ? (
             <View style={styles.tr}>
@@ -141,17 +135,14 @@ export function TerminalReportPDF({
             payload.subjects.map((s) => (
               <View style={styles.tr} key={s.subject_name}>
                 <Text style={[styles.td, styles.colSubject, { fontWeight: 700 }]}>{s.subject_name}</Text>
-                <Text style={[styles.td, styles.colAssessments]}>
-                  {s.assessments.length === 0 ? "—" : s.assessments.map((a) => `${a.name} (${a.score}/${a.maximum_score})`).join(", ")}
+                <Text style={[styles.td, styles.colClassWork]}>
+                  {s.class_work_scaled !== null ? `${s.class_work_scaled}/50` : "—"}
                 </Text>
-                <Text style={[styles.td, styles.colCA]}>{s.ca_percentage !== null ? `${s.ca_percentage}%` : "—"}</Text>
-                <Text style={[styles.td, styles.colExam]}>{s.exam_percentage !== null ? `${s.exam_percentage}%` : "—"}</Text>
+                <Text style={[styles.td, styles.colExam]}>{s.exam_scaled !== null ? `${s.exam_scaled}/50` : "—"}</Text>
                 <Text style={[styles.td, styles.colAvg, { fontWeight: 700 }]}>
-                  {s.subject_average_percentage !== null ? `${s.subject_average_percentage}%` : "—"}
+                  {s.subject_average_percentage !== null ? `${s.subject_average_percentage}/100` : "—"}
                 </Text>
                 <Text style={[styles.td, styles.colGrade, { color: GOLD, fontWeight: 700 }]}>{s.subject_grade ?? "—"}</Text>
-                <Text style={[styles.td, styles.colTeacher]}>{s.teacher_name}</Text>
-                <Text style={[styles.td, styles.colComment]}>{s.teacher_comment ?? "—"}</Text>
               </View>
             ))
           )}

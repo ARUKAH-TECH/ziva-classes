@@ -7,16 +7,22 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? v[0] ?? null : v;
 }
 
-// CA = continuous assessment (everything that isn't the term's final exam).
-// subject_average_percentage already averages across every assessment type
-// including EXAMINATION, so it doubles as the subject's combined "Total" —
-// ca_percentage/exam_percentage break that same number down by type.
+// CA = continuous assessment / class work (everything that isn't the term's
+// final exam). ca_percentage and exam_percentage are each a 0-100 average
+// within their own type; subject_average_percentage is the BECE-style Total
+// built from those two (see computeSubjectAverages).
 const CA_ASSESSMENT_TYPES = new Set(["ASSIGNMENT", "QUIZ", "TEST", "PROJECT"]);
 
 export interface ReportSubject {
   subject_name: string;
   teacher_name: string;
   assessments: { name: string; assessment_type: string; score: number; maximum_score: number; percentage: number }[];
+  // Class work (CA-type assessments) and exam performance, each scaled down
+  // to a mark out of 50 — BECE-style 50/50 split — then summed into
+  // subject_average_percentage as the subject's Total out of 100. See
+  // computeSubjectAverages for the scaling.
+  class_work_scaled: number | null;
+  exam_scaled: number | null;
   subject_average_percentage: number | null;
   subject_grade: string | null;
   teacher_comment: string | null;
@@ -128,16 +134,22 @@ async function computeSubjectAverages(
       .filter((x): x is NonNullable<typeof x> => x !== null)
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    const subjectAverage =
-      assessments.length > 0
-        ? Math.round((assessments.reduce((sum, a) => sum + a.percentage, 0) / assessments.length) * 10) / 10
-        : null;
-
     const average = (rows: typeof assessments) =>
       rows.length > 0 ? Math.round((rows.reduce((sum, a) => sum + a.percentage, 0) / rows.length) * 10) / 10 : null;
 
     const caPercentage = average(assessments.filter((a) => CA_ASSESSMENT_TYPES.has(a.assessment_type)));
     const examPercentage = average(assessments.filter((a) => a.assessment_type === "EXAMINATION"));
+
+    // BECE-style 50/50 split: class work (out of its own max, e.g. 60) and
+    // the exam (out of its own max, e.g. 100) are each already normalized to
+    // a 0-100 percentage above, so scaling either down to a mark out of 50
+    // is just halving that percentage. The subject Total only exists once
+    // both halves are in — a subject with only class work entered isn't
+    // graded yet.
+    const classWorkScaled = caPercentage !== null ? Math.round(caPercentage * 0.5 * 10) / 10 : null;
+    const examScaled = examPercentage !== null ? Math.round(examPercentage * 0.5 * 10) / 10 : null;
+    const subjectTotal =
+      classWorkScaled !== null && examScaled !== null ? Math.round((classWorkScaled + examScaled) * 10) / 10 : null;
 
     const latestComment = assessments.length > 0 ? assessments[assessments.length - 1].comment : null;
 
@@ -151,7 +163,9 @@ async function computeSubjectAverages(
         maximum_score,
         percentage,
       })),
-      subject_average_percentage: subjectAverage,
+      class_work_scaled: classWorkScaled,
+      exam_scaled: examScaled,
+      subject_average_percentage: subjectTotal,
       subject_grade: null, // filled in by caller once academic_level_id is known
       teacher_comment: latestComment,
       ca_percentage: caPercentage,

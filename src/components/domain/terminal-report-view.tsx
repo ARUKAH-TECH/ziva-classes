@@ -107,19 +107,16 @@ export function TerminalReportView({
         <thead>
           <tr className="bg-navy-900 text-white">
             <th className="border border-navy-900 px-2 py-1.5 text-left">Subject</th>
-            <th className="border border-navy-900 px-2 py-1.5 text-left">Assessments</th>
-            <th className="border border-navy-900 px-2 py-1.5 text-right">CA %</th>
-            <th className="border border-navy-900 px-2 py-1.5 text-right">Exam %</th>
-            <th className="border border-navy-900 px-2 py-1.5 text-right">Total %</th>
+            <th className="border border-navy-900 px-2 py-1.5 text-right">Class Work (50%)</th>
+            <th className="border border-navy-900 px-2 py-1.5 text-right">Exam (50%)</th>
+            <th className="border border-navy-900 px-2 py-1.5 text-right">Total (100%)</th>
             <th className="border border-navy-900 px-2 py-1.5 text-center">Grade</th>
-            <th className="border border-navy-900 px-2 py-1.5 text-left">Teacher</th>
-            <th className="border border-navy-900 px-2 py-1.5 text-left">Comment</th>
           </tr>
         </thead>
         <tbody>
           {payload.subjects.length === 0 ? (
             <tr>
-              <td colSpan={8} className="border border-gray-300 px-2 py-3 text-center text-ink-500">
+              <td colSpan={5} className="border border-gray-300 px-2 py-3 text-center text-ink-500">
                 No subjects enrolled.
               </td>
             </tr>
@@ -127,25 +124,18 @@ export function TerminalReportView({
             payload.subjects.map((s) => (
               <tr key={s.subject_name} className="odd:bg-surface">
                 <td className="border border-gray-300 px-2 py-1.5 font-medium">{s.subject_name}</td>
-                <td className="border border-gray-300 px-2 py-1.5">
-                  {s.assessments.length === 0
-                    ? "—"
-                    : s.assessments.map((a) => `${a.name} (${a.score}/${a.maximum_score})`).join(", ")}
+                <td className="border border-gray-300 px-2 py-1.5 text-right">
+                  {s.class_work_scaled !== null ? `${s.class_work_scaled}/50` : "—"}
                 </td>
                 <td className="border border-gray-300 px-2 py-1.5 text-right">
-                  {s.ca_percentage !== null ? `${s.ca_percentage}%` : "—"}
-                </td>
-                <td className="border border-gray-300 px-2 py-1.5 text-right">
-                  {s.exam_percentage !== null ? `${s.exam_percentage}%` : "—"}
+                  {s.exam_scaled !== null ? `${s.exam_scaled}/50` : "—"}
                 </td>
                 <td className="border border-gray-300 px-2 py-1.5 text-right font-semibold">
-                  {s.subject_average_percentage !== null ? `${s.subject_average_percentage}%` : "—"}
+                  {s.subject_average_percentage !== null ? `${s.subject_average_percentage}/100` : "—"}
                 </td>
                 <td className="border border-gray-300 px-2 py-1.5 text-center font-semibold text-gold-700">
                   {s.subject_grade ?? "—"}
                 </td>
-                <td className="border border-gray-300 px-2 py-1.5">{s.teacher_name}</td>
-                <td className="border border-gray-300 px-2 py-1.5">{s.teacher_comment ?? "—"}</td>
               </tr>
             ))
           )}

@@ -177,6 +177,78 @@ export async function deleteAssessment(id: string): Promise<ActionResult> {
   }
 }
 
+// Standard assessment layout every class/subject gets, term by term: four
+// class-work categories worth 15% each (60% total) plus the exam worth
+// 100% — the same 60/100 split the terminal report scales down to 50/50
+// (see computeSubjectAverages in compute-report.ts). Teachers don't create
+// these by hand; ensureStandardAssessments provisions them automatically so
+// there's just a mark to fill in per student.
+const STANDARD_ASSESSMENTS: { name: string; assessment_type: AssessmentType; maximum_score: number }[] = [
+  { name: "Class Exercise", assessment_type: "TEST", maximum_score: 15 },
+  { name: "Homework", assessment_type: "ASSIGNMENT", maximum_score: 15 },
+  { name: "Quiz", assessment_type: "QUIZ", maximum_score: 15 },
+  { name: "Project Work", assessment_type: "PROJECT", maximum_score: 15 },
+  { name: "Exams", assessment_type: "EXAMINATION", maximum_score: 100 },
+];
+
+// Provisions the standard assessment layout for every class/subject this
+// teacher is actively assigned to, for the given term. Idempotent — skips
+// any (class_subject, type) pair that already has an assessment for this
+// term, whether that came from a prior call or a manually-created one.
+export async function ensureStandardAssessments(termId: string): Promise<ActionResult> {
+  try {
+    const { supabase, teacherId } = await requireTeacher();
+    if (!termId) return { success: true, data: undefined };
+
+    const { data: assignments } = await supabase
+      .from("teacher_assignments")
+      .select("class_subject_id")
+      .eq("teacher_id", teacherId)
+      .eq("active", true);
+
+    const classSubjectIds = [
+      ...new Set(((assignments as { class_subject_id: string }[]) ?? []).map((a) => a.class_subject_id)),
+    ];
+    if (classSubjectIds.length === 0) return { success: true, data: undefined };
+
+    const { data: existing } = await supabase
+      .from("assessments")
+      .select("class_subject_id, assessment_type")
+      .eq("term_id", termId)
+      .in("class_subject_id", classSubjectIds);
+
+    const existingKeys = new Set(
+      ((existing as { class_subject_id: string; assessment_type: AssessmentType }[]) ?? []).map(
+        (e) => `${e.class_subject_id}:${e.assessment_type}`
+      )
+    );
+
+    const rows = classSubjectIds.flatMap((classSubjectId) =>
+      STANDARD_ASSESSMENTS.filter((std) => !existingKeys.has(`${classSubjectId}:${std.assessment_type}`)).map(
+        (std) => ({
+          class_subject_id: classSubjectId,
+          term_id: termId,
+          teacher_id: teacherId,
+          name: std.name,
+          assessment_type: std.assessment_type,
+          assessment_date: null,
+          maximum_score: std.maximum_score,
+        })
+      )
+    );
+
+    if (rows.length > 0) {
+      const { error } = await supabase.from("assessments").insert(rows);
+      if (error) return { success: false, error: error.message };
+      revalidatePath("/teacher/assessments");
+    }
+
+    return { success: true, data: undefined };
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
+  }
+}
+
 // My (teacher's) own class+subject assignments, for the create-assessment picker.
 export interface MyClassSubjectOption {
   class_subject_id: string;

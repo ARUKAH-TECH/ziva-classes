@@ -8,7 +8,7 @@ import { z } from "zod";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_HOME_PATH, type UserRole } from "@/lib/permissions/roles";
-import { resolveLoginEmailById } from "@/lib/actions/auth-lookup";
+import { resolveLoginEmailById, resolvePasswordlessLoginById } from "@/lib/actions/auth-lookup";
 import { ZivaLogo } from "@/components/domain/ziva-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,9 +25,17 @@ type EmailLoginForm = z.infer<typeof emailLoginSchema>;
 
 const idLoginSchema = z.object({
   loginId: z.string().min(1, "ID is required"),
-  password: z.string().min(1, "Password is required"),
+  password: z.string().optional(),
 });
 type IdLoginForm = z.infer<typeof idLoginSchema>;
+
+// Student IDs (ZIVA-...) and Parent IDs (PAR-...) sign in with just the ID —
+// no password field shown. Teacher IDs (TCH-...) and anything unrecognized
+// still require a password.
+function isPasswordlessLoginId(loginId: string) {
+  const upper = loginId.trim().toUpperCase();
+  return upper.startsWith("ZIVA-") || upper.startsWith("PAR-");
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,6 +45,7 @@ export default function LoginPage() {
 
   const emailForm = useForm<EmailLoginForm>({ resolver: zodResolver(emailLoginSchema) });
   const idForm = useForm<IdLoginForm>({ resolver: zodResolver(idLoginSchema) });
+  const idLoginIdValue = idForm.watch("loginId");
 
   async function completeSignIn(email: string, password: string, genericErrorMessage: string) {
     const supabase = createClient();
@@ -77,9 +86,28 @@ export default function LoginPage() {
 
   async function onIdSubmit(values: IdLoginForm) {
     setServerError(null);
-    setSubmitting(true);
 
-    const email = await resolveLoginEmailById(values.loginId);
+    const trimmedId = values.loginId.trim();
+
+    if (isPasswordlessLoginId(trimmedId)) {
+      setSubmitting(true);
+      const credentials = await resolvePasswordlessLoginById(trimmedId);
+      if (!credentials) {
+        setSubmitting(false);
+        setServerError("ID not found. Please check and try again.");
+        return;
+      }
+      await completeSignIn(credentials.email, credentials.password, "ID not found. Please check and try again.");
+      return;
+    }
+
+    if (!values.password) {
+      idForm.setError("password", { message: "Password is required" });
+      return;
+    }
+
+    setSubmitting(true);
+    const email = await resolveLoginEmailById(trimmedId);
     if (!email) {
       setSubmitting(false);
       setServerError("Incorrect ID or password. Please try again.");
@@ -187,25 +215,31 @@ export default function LoginPage() {
                   )}
                 </div>
 
-                <div>
-                  <Label htmlFor="id-password">Password</Label>
-                  <Input
-                    id="id-password"
-                    type="password"
-                    autoComplete="current-password"
-                    aria-invalid={!!idForm.formState.errors.password}
-                    aria-describedby={idForm.formState.errors.password ? "id-password-error" : undefined}
-                    {...idForm.register("password")}
-                  />
-                  {idForm.formState.errors.password && (
-                    <p id="id-password-error" className="mt-1 text-sm text-error">
-                      {idForm.formState.errors.password.message}
-                    </p>
-                  )}
-                  <p className="mt-1.5 text-sm text-ink-500">
-                    Lost your password? Ask your school admin to reset it.
+                {isPasswordlessLoginId(idLoginIdValue || "") ? (
+                  <p className="text-sm text-ink-500">
+                    Students and parents sign in with just their ID — no password needed.
                   </p>
-                </div>
+                ) : (
+                  <div>
+                    <Label htmlFor="id-password">Password</Label>
+                    <Input
+                      id="id-password"
+                      type="password"
+                      autoComplete="current-password"
+                      aria-invalid={!!idForm.formState.errors.password}
+                      aria-describedby={idForm.formState.errors.password ? "id-password-error" : undefined}
+                      {...idForm.register("password")}
+                    />
+                    {idForm.formState.errors.password && (
+                      <p id="id-password-error" className="mt-1 text-sm text-error">
+                        {idForm.formState.errors.password.message}
+                      </p>
+                    )}
+                    <p className="mt-1.5 text-sm text-ink-500">
+                      Lost your password? Ask your school admin to reset it.
+                    </p>
+                  </div>
+                )}
 
                 <Button type="submit" className="w-full" disabled={submitting}>
                   {submitting ? "Signing in..." : "Sign in"}
