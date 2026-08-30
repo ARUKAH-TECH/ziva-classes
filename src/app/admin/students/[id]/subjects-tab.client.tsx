@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, X, BookOpen, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,19 @@ export function SubjectsTab({
   const remaining = availableClassSubjects.filter((cs) => !enrolledIds.has(cs.class_subject_id));
   const [selected, setSelected] = useState(remaining[0]?.class_subject_id ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const warningStorageKey = `subjectAssignWarning:${studentId}`;
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem(warningStorageKey);
+    if (stored) {
+      setWarning(stored);
+      sessionStorage.removeItem(warningStorageKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!enrollment) {
     return (
@@ -51,6 +63,9 @@ export function SubjectsTab({
       setError(result.error);
       return;
     }
+    if (result.warning) {
+      sessionStorage.setItem(warningStorageKey, result.warning);
+    }
     window.location.reload();
   }
 
@@ -71,6 +86,7 @@ export function SubjectsTab({
       </CardHeader>
       <CardContent>
         {error && <Alert variant="error" className="mb-4">{error}</Alert>}
+        {warning && <Alert variant="warning" className="mb-4">{warning}</Alert>}
 
         {studentSubjects.length === 0 ? (
           <EmptyState

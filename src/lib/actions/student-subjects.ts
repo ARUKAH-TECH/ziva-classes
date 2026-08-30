@@ -112,6 +112,10 @@ export async function addStudentSubject(
     // the current term, charge the student immediately instead of waiting
     // for a manual "Generate charges" run — best-effort, so a hiccup here
     // doesn't undo the subject enrollment that already succeeded above.
+    // Any reason billing didn't happen is surfaced back to the admin as a
+    // warning rather than swallowed, so a missing "current term" doesn't
+    // look like the enrollment silently forgot to bill.
+    let warning: string | undefined;
     try {
       const { data: term } = await supabase
         .from("terms")
@@ -121,7 +125,10 @@ export async function addStudentSubject(
         .maybeSingle();
       const termId = (term as { id: string } | null)?.id;
 
-      if (termId) {
+      if (!termId) {
+        warning =
+          "Subject assigned, but no fee was charged automatically — no term is marked as current for this academic year. Set one in Settings, then generate the charge from Fees & Payments if needed.";
+      } else {
         const { data: feeStructure } = await supabase
           .from("fee_structures")
           .select("id, amount")
@@ -141,20 +148,22 @@ export async function addStudentSubject(
             .maybeSingle();
 
           if (!existingCharge) {
-            await supabase
+            const { error: chargeError } = await supabase
               .from("student_charges")
               .insert({ student_id: studentId, fee_structure_id: fs.id, amount_due: fs.amount });
+            if (chargeError) {
+              warning = "Subject assigned, but the automatic fee charge failed. Generate it manually from Fees & Payments.";
+            }
           }
         }
       }
     } catch {
-      // Best-effort — the subject enrollment itself already succeeded;
-      // admin can still generate the charge later from Fees & Payments.
+      warning = "Subject assigned, but the automatic fee charge failed. Generate it manually from Fees & Payments.";
     }
 
     revalidatePath(`/admin/students/${studentId}`);
     revalidatePath(`/admin/students/${studentId}?tab=fees`);
-    return { success: true, data: undefined };
+    return { success: true, data: undefined, warning };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }

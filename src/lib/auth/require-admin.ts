@@ -102,5 +102,5 @@ export async function requireOrgMember() {
 }
 
 export type ActionResult<T = void> =
-  | { success: true; data: T }
+  | { success: true; data: T; warning?: string }
   | { success: false; error: string };
