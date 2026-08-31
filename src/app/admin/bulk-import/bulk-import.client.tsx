@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import * as XLSX from "xlsx";
+import { UploadCloud } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -108,11 +110,40 @@ function ImportPanel<T>({
   const [importing, setImporting] = useState(false);
   const [summary, setSummary] = useState<BulkImportSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleParse() {
+  function handleParse(source: string = text) {
     setSummary(null);
     setError(null);
-    setParsed(parsePastedSheet<T>(text, fields));
+    setParsed(parsePastedSheet<T>(source, fields));
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // lets the same file be re-selected after fixing it
+    if (!file) return;
+
+    setError(null);
+    setSummary(null);
+    setFileName(file.name);
+
+    try {
+      let tsv: string;
+      if (file.name.toLowerCase().endsWith(".csv")) {
+        tsv = await file.text();
+      } else {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        tsv = XLSX.utils.sheet_to_csv(sheet, { FS: "\t" });
+      }
+      setText(tsv);
+      handleParse(tsv);
+    } catch {
+      setError("Could not read that file — make sure it's a valid Excel (.xlsx/.xls) or CSV file.");
+      setParsed(null);
+    }
   }
 
   async function handleImport() {
@@ -137,21 +168,40 @@ function ImportPanel<T>({
           Expected columns (any order, header row required):{" "}
           <span className="font-mono">{fields.map((f) => (f.required ? `${f.label}*` : f.label)).join(" · ")}</span>
         </p>
+        <p className="mt-1 text-xs text-ink-500">
+          Upload the file directly (first sheet only, if it&apos;s a workbook) or copy cells from Excel/Sheets and
+          paste them below — either way, the first row must be your column headers.
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+          <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+            <UploadCloud className="h-4 w-4" /> Upload Excel or CSV file
+          </Button>
+          {fileName && <span className="text-sm text-ink-500">{fileName}</span>}
+          <span className="text-sm text-ink-500">— or paste rows directly below</span>
+        </div>
         <Textarea
           rows={8}
           placeholder={sampleRow}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
+            setFileName(null);
             setParsed(null);
             setSummary(null);
             setError(null);
           }}
         />
         <div className="flex gap-2">
-          <Button type="button" variant="secondary" onClick={handleParse} disabled={!text.trim()}>
+          <Button type="button" variant="secondary" onClick={() => handleParse()} disabled={!text.trim()}>
             Parse &amp; Preview
           </Button>
           <Button

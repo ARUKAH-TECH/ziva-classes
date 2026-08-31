@@ -24,6 +24,7 @@
     "server-only": "^0.0.1",
     "sharp": "^0.35.4",
     "tailwind-merge": "^2.5.2",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz",
     "zod": "^3.23.8"
   },
   "devDependencies": {
