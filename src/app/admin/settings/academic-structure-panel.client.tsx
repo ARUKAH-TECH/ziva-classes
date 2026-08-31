@@ -168,6 +168,10 @@ function LevelsCard({
             setLevels((prev) => prev.map((l) => (l.id === editingLevel.id ? { ...l, code: updatedCode } : l)));
             setEditingLevel(null);
           }}
+          onDeleted={() => {
+            setLevels((prev) => prev.filter((l) => l.id !== editingLevel.id));
+            setEditingLevel(null);
+          }}
         />
       )}
     </Card>
@@ -178,14 +182,17 @@ function EditLevelCodeDialog({
   level,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   level: AcademicLevel;
   onClose: () => void;
   onSaved: (code: string | null) => void;
+  onDeleted: () => void;
 }) {
   const [code, setCode] = useState(level.code ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -195,6 +202,19 @@ function EditLevelCodeDialog({
     setBusy(false);
     if (result.success) {
       onSaved(code.trim().toUpperCase() || null);
+    } else {
+      setError(result.error);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Delete academic level "${level.name}"? This can't be undone.`)) return;
+    setError(null);
+    setDeleting(true);
+    const result = await deleteAcademicLevel(level.id);
+    setDeleting(false);
+    if (result.success) {
+      onDeleted();
     } else {
       setError(result.error);
     }
@@ -211,6 +231,9 @@ function EditLevelCodeDialog({
         </div>
         <Button type="submit" disabled={busy} className="w-full">
           {busy ? "Saving..." : "Save code"}
+        </Button>
+        <Button type="button" variant="danger" className="w-full" onClick={handleDelete} disabled={deleting}>
+          <Trash2 className="h-4 w-4" /> {deleting ? "Deleting..." : "Delete level"}
         </Button>
       </form>
     </Dialog>
