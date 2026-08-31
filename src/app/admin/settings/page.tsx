@@ -2,14 +2,16 @@ import { getOrganization } from "@/lib/actions/organization";
 import { listAcademicYears } from "@/lib/actions/academic-years";
 import { listAcademicLevels } from "@/lib/actions/academic-levels";
 import { listGradingScales } from "@/lib/actions/grading-scales";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { SettingsTabs } from "./settings-tabs.client";
 
 export default async function SettingsPage() {
-  const [organization, academicYears, academicLevels, gradingScales] = await Promise.all([
+  const [organization, academicYears, academicLevels, gradingScales, user] = await Promise.all([
     getOrganization(),
     listAcademicYears(),
     listAcademicLevels(),
     listGradingScales(),
+    getCurrentUser(),
   ]);
 
   return (
@@ -26,6 +28,7 @@ export default async function SettingsPage() {
         initialAcademicYears={academicYears}
         initialAcademicLevels={academicLevels}
         initialGradingScales={gradingScales}
+        role={user.role}
       />
     </div>
   );
