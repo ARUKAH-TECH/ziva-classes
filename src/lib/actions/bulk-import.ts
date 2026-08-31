@@ -337,7 +337,6 @@ export interface TeacherImportRow {
   last_name: string;
   phone: string;
   email: string;
-  employee_number: string;
   qualification: string;
   specialization: string;
 }
@@ -349,19 +348,19 @@ export async function bulkImportTeachers(rows: TeacherImportRow[]): Promise<Acti
     const summary = await runBatch(rows, async (row) => {
       const firstName = required(row.first_name, "First name");
       const lastName = required(row.last_name, "Last name");
+      const specialization = required(row.specialization, "Specialization");
       const result = await createTeacher({
         first_name: firstName,
         last_name: lastName,
         email: row.email?.trim() ?? "",
         phone: row.phone?.trim() ?? "",
-        employee_number: row.employee_number?.trim() ?? "",
         qualification: row.qualification?.trim() ?? "",
-        specialization: row.specialization?.trim() ?? "",
+        specialization,
       });
       if (!result.success) throw new Error(result.error);
       return {
         status: "created" as const,
-        message: result.data.loginId ? `Created — login ID ${result.data.loginId}` : "Created",
+        message: `Created — Teacher ID ${result.data.employeeNumber}${result.data.loginId ? `, login ID ${result.data.loginId}` : ""}`,
       };
     });
 
@@ -444,12 +443,9 @@ export async function bulkImportStudents(rows: StudentImportRow[]): Promise<Acti
       const firstName = required(row.first_name, "First name");
       const lastName = required(row.last_name, "Last name");
 
-      let classId = "";
-      const className = row.class?.trim();
-      if (className) {
-        if (!academicYearId) throw new Error("No current academic year is set — set one in Settings before importing students into a class.");
-        classId = await findOrCreateClass(supabase, organizationId, className, row.level);
-      }
+      const className = required(row.class, "Class");
+      if (!academicYearId) throw new Error("No current academic year is set — set one in Settings before importing students.");
+      const classId = await findOrCreateClass(supabase, organizationId, className, row.level);
 
       const result = await createStudent({
         first_name: firstName,
@@ -461,7 +457,7 @@ export async function bulkImportStudents(rows: StudentImportRow[]): Promise<Acti
         email: "",
         enrollment_source: mapEnrollmentSource(row.enrollment_source),
         class_id: classId,
-        academic_year_id: classId ? academicYearId! : "",
+        academic_year_id: academicYearId,
       });
       if (!result.success) throw new Error(result.error);
 

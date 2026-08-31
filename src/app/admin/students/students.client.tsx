@@ -280,21 +280,30 @@ function AddStudentDialog({
           </Select>
         </div>
 
-        {classes.length > 0 && currentYear && (
+        {classes.length > 0 && currentYear ? (
           <div>
-            <Label htmlFor="s-class">Enroll into class ({currentYear.name})</Label>
-            <Select id="s-class" value={classId} onChange={(e) => setClassId(e.target.value)}>
-              <option value="">Don&apos;t enroll yet</option>
+            <Label htmlFor="s-class">Class ({currentYear.name})</Label>
+            <Select id="s-class" value={classId} onChange={(e) => setClassId(e.target.value)} required>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} — {c.academic_level_name}
                 </option>
               ))}
             </Select>
+            <p className="mt-1 text-xs text-ink-500">
+              Required — the student&apos;s ID is generated from their class&apos;s level.
+            </p>
           </div>
+        ) : (
+          <Alert variant="error">
+            {classes.length === 0
+              ? "No classes exist yet — add one first (Classes page)."
+              : "No current academic year is set — set one in Settings first."}{" "}
+            A class is required to generate the student&apos;s ID.
+          </Alert>
         )}
 
-        <Button type="submit" disabled={busy} className="w-full">
+        <Button type="submit" disabled={busy || classes.length === 0 || !currentYear} className="w-full">
           {busy ? "Creating..." : "Add student"}
         </Button>
       </form>

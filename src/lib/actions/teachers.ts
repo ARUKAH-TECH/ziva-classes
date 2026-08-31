@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin, type ActionResult } from "@/lib/auth/require-admin";
 import { requireTeacher } from "@/lib/auth/require-teacher";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { synthEmailForLoginId, generateTeacherLoginId, nextIdSequence } from "@/lib/synthetic-login";
+import {
+  synthEmailForLoginId,
+  generateTeacherLoginId,
+  nextIdSequence,
+  nextIdSequenceForPrefix,
+  sanitizeIdSegment,
+} from "@/lib/synthetic-login";
 
 export interface TeacherRow {
   id: string; // teacher_profiles.id
@@ -155,10 +161,9 @@ export async function createTeacher(input: {
   last_name: string;
   email: string;
   phone: string;
-  employee_number: string;
   qualification: string;
   specialization: string;
-}): Promise<ActionResult<{ tempPassword: string; loginId: string | null; teacherId: string }>> {
+}): Promise<ActionResult<{ tempPassword: string; loginId: string | null; teacherId: string; employeeNumber: string }>> {
   try {
     const { organizationId } = await requireAdmin();
 
@@ -168,11 +173,25 @@ export async function createTeacher(input: {
     if (!input.phone || input.phone.trim().length < 6) {
       return { success: false, error: "A phone number is required — it becomes this teacher's login password." };
     }
+    if (!input.specialization?.trim()) {
+      return { success: false, error: "Specialization is required — it's used to generate this teacher's ID." };
+    }
 
     const admin = createAdminClient();
     // Password policy: every non-Super-Admin login uses the person's own
     // phone number as their password, so it's something they already know.
     const tempPassword = input.phone.trim();
+
+    // Employee number is fully system-generated (ZIVA/{SPECIALIZATION}/{yy}/{seq})
+    // from the specialization they entered — never typed by hand. This is a
+    // display/reference ID only; the actual login (login_id, below) is
+    // unaffected and stays TCH-prefixed to avoid colliding with student IDs,
+    // which use this same ZIVA/ prefix scheme (see auth-lookup.ts).
+    const specCode = sanitizeIdSegment(input.specialization);
+    const empYy = String(new Date().getFullYear()).slice(-2);
+    const empPrefix = `ZIVA/${specCode}/${empYy}/`;
+    const empSequence = await nextIdSequenceForPrefix(admin, "teacher_profiles", "employee_number", organizationId, empPrefix);
+    const employeeNumber = `${empPrefix}${String(empSequence).padStart(4, "0")}`;
 
     let loginEmail = input.email;
     let loginId: string | null = null;
@@ -218,10 +237,10 @@ export async function createTeacher(input: {
       .insert({
         user_id: authUser.user.id,
         organization_id: organizationId,
-        employee_number: input.employee_number || null,
+        employee_number: employeeNumber,
         login_id: loginId,
         qualification: input.qualification || null,
-        specialization: input.specialization || null,
+        specialization: input.specialization,
       })
       .select("id")
       .single();
@@ -235,7 +254,10 @@ export async function createTeacher(input: {
     }
 
     revalidatePath("/admin/teachers");
-    return { success: true, data: { tempPassword, loginId, teacherId: (profile as { id: string }).id } };
+    return {
+      success: true,
+      data: { tempPassword, loginId, teacherId: (profile as { id: string }).id, employeeNumber },
+    };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }

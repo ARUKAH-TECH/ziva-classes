@@ -29,12 +29,12 @@ const idLoginSchema = z.object({
 });
 type IdLoginForm = z.infer<typeof idLoginSchema>;
 
-// Student IDs (ZIVA-...) and Parent IDs (PAR-...) sign in with just the ID —
-// no password field shown. Teacher IDs (TCH-...) and anything unrecognized
-// still require a password.
+// Student IDs (legacy ZIVA-..., or current level-structured ZIVA/...) and
+// Parent IDs (PAR-...) sign in with just the ID — no password field shown.
+// Teacher IDs (TCH-...) and anything unrecognized still require a password.
 function isPasswordlessLoginId(loginId: string) {
   const upper = loginId.trim().toUpperCase();
-  return upper.startsWith("ZIVA-") || upper.startsWith("PAR-");
+  return upper.startsWith("ZIVA-") || upper.startsWith("ZIVA/") || upper.startsWith("PAR-");
 }
 
 export default function LoginPage() {
@@ -203,7 +203,7 @@ export default function LoginPage() {
                     id="login-id"
                     type="text"
                     autoComplete="username"
-                    placeholder="ZIVA-2026-0001"
+                    placeholder="ZIVA/PRI/26/0001"
                     aria-invalid={!!idForm.formState.errors.loginId}
                     aria-describedby={idForm.formState.errors.loginId ? "login-id-error" : undefined}
                     {...idForm.register("loginId")}

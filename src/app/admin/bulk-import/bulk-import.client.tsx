@@ -40,9 +40,8 @@ const TEACHER_FIELDS: ImportField[] = [
   { key: "last_name", label: "Last Name", required: true },
   { key: "phone", label: "Phone" },
   { key: "email", label: "Email" },
-  { key: "employee_number", label: "Employee Number" },
   { key: "qualification", label: "Qualification" },
-  { key: "specialization", label: "Specialization" },
+  { key: "specialization", label: "Specialization", required: true },
 ];
 
 const PARENT_FIELDS: ImportField[] = [
@@ -60,7 +59,7 @@ const STUDENT_FIELDS: ImportField[] = [
   { key: "last_name", label: "Last Name", required: true },
   { key: "date_of_birth", label: "Date of Birth" },
   { key: "gender", label: "Gender" },
-  { key: "class", label: "Class" },
+  { key: "class", label: "Class", required: true },
   { key: "level", label: "Level" },
   { key: "enrollment_source", label: "Enrollment Source" },
   { key: "parent_phone", label: "Parent Phone" },
@@ -249,8 +248,8 @@ export function BulkImportClient() {
       <TabsContent value="teachers">
         <ImportPanel<TeacherImportRow>
           fields={TEACHER_FIELDS}
-          helpText="Registers a login account for each teacher, same as the one-at-a-time Teachers form. Phone becomes their login password. Leave Email blank to get an auto-generated Teacher ID login instead."
-          sampleRow={"First Name\tLast Name\tPhone\tEmail\tEmployee Number\tQualification\tSpecialization\nAma\tMensah\t0244000001\t\tEMP001\tB.Ed\tMathematics"}
+          helpText="Registers a login account for each teacher, same as the one-at-a-time Teachers form. Phone becomes their login password. Leave Email blank to get an auto-generated Teacher ID login instead. Specialization is required — it's used to auto-generate this teacher's Employee ID (e.g. Mathematics → ZIVA/MATHEMATICS/26/0001)."
+          sampleRow={"First Name\tLast Name\tPhone\tEmail\tQualification\tSpecialization\nAma\tMensah\t0244000001\t\tB.Ed\tMathematics"}
           action={bulkImportTeachers}
         />
       </TabsContent>
@@ -267,7 +266,7 @@ export function BulkImportClient() {
       <TabsContent value="students">
         <ImportPanel<StudentImportRow>
           fields={STUDENT_FIELDS}
-          helpText="Registers each student and auto-enrolls them into Class (created automatically if given a Level and it doesn't exist yet). Parent Phone auto-links them to an already-registered parent with that phone number. Enrollment Source is In Person or Social Media (defaults to In Person)."
+          helpText="Registers each student and auto-enrolls them into Class (created automatically if given a Level and it doesn't exist yet) — Class is required, since the student's ID is generated from their level (e.g. Primary → ZIVA/PRI/26/0001). Parent Phone auto-links them to an already-registered parent with that phone number. Enrollment Source is In Person or Social Media (defaults to In Person)."
           sampleRow={
             "First Name\tMiddle Name\tLast Name\tDate of Birth\tGender\tClass\tLevel\tEnrollment Source\tParent Phone\nAkosua\t\tBoateng\t2012-05-14\tFemale\tJHS 1\tJunior High\tIn Person\t0244000002"
           }
@@ -298,8 +297,8 @@ export function BulkImportClient() {
       <TabsContent value="payments">
         <ImportPanel<PaymentImportRow>
           fields={PAYMENT_FIELDS}
-          helpText="Records money already received and auto-allocates it against that student's oldest outstanding charges first. Student ID is the Student ID shown on their profile (e.g. ZIVA-2026-0001). Method is Cash or Mobile Money."
-          sampleRow={"Student ID\tAmount\tMethod\tReference\tNotes\nZIVA-2026-0001\t150\tCash\t\t"}
+          helpText="Records money already received and auto-allocates it against that student's oldest outstanding charges first. Student ID is the Student ID shown on their profile (e.g. ZIVA/PRI/26/0001). Method is Cash or Mobile Money."
+          sampleRow={"Student ID\tAmount\tMethod\tReference\tNotes\nZIVA/PRI/26/0001\t150\tCash\t\t"}
           action={bulkImportPayments}
         />
       </TabsContent>

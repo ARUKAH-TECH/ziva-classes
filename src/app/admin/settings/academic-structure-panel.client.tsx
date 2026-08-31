@@ -22,6 +22,7 @@ import {
   createAcademicLevel,
   deleteAcademicLevel,
   seedStandardLevels,
+  updateAcademicLevel,
   type AcademicLevel,
 } from "@/lib/actions/academic-levels";
 
@@ -55,8 +56,10 @@ function LevelsCard({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [order, setOrder] = useState((levels.length + 1).toString());
+  const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editingLevel, setEditingLevel] = useState<AcademicLevel | null>(null);
 
   async function seed() {
     setBusy(true);
@@ -70,7 +73,7 @@ function LevelsCard({
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const result = await createAcademicLevel({ name, level_order: parseInt(order, 10) || 0 });
+    const result = await createAcademicLevel({ name, level_order: parseInt(order, 10) || 0, code });
     setBusy(false);
     if (result.success) {
       window.location.reload();
@@ -102,16 +105,25 @@ function LevelsCard({
             description="Add Primary, JHS, and SHS levels — or use the seed button to add the standard 12 levels at once."
           />
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {levels
-              .slice()
-              .sort((a, b) => (a.level_order ?? 0) - (b.level_order ?? 0))
-              .map((l) => (
-                <Badge key={l.id} variant="royal">
-                  {l.name}
-                </Badge>
-              ))}
-          </div>
+          <>
+            <p className="mb-3 text-sm text-ink-500">
+              Click a level to set its Code — used to build each student&apos;s ID (e.g. Primary → PRI gives
+              ZIVA/PRI/26/0001). Levels without a code shown in gray still work, just fall back to a longer code
+              until you set one.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {levels
+                .slice()
+                .sort((a, b) => (a.level_order ?? 0) - (b.level_order ?? 0))
+                .map((l) => (
+                  <button key={l.id} type="button" onClick={() => setEditingLevel(l)}>
+                    <Badge variant={l.code ? "royal" : "neutral"}>
+                      {l.name} {l.code ? `— ${l.code}` : "— no code"}
+                    </Badge>
+                  </button>
+                ))}
+            </div>
+          </>
         )}
       </CardContent>
 
@@ -131,12 +143,77 @@ function LevelsCard({
               onChange={(e) => setOrder(e.target.value)}
             />
           </div>
+          <div>
+            <Label htmlFor="level-code">Code</Label>
+            <Input
+              id="level-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="PRI"
+              maxLength={20}
+            />
+            <p className="mt-1 text-xs text-ink-500">Used in student IDs for this level, e.g. ZIVA/PRI/26/0001.</p>
+          </div>
           <Button type="submit" disabled={busy} className="w-full">
             {busy ? "Adding..." : "Add level"}
           </Button>
         </form>
       </Dialog>
+
+      {editingLevel && (
+        <EditLevelCodeDialog
+          level={editingLevel}
+          onClose={() => setEditingLevel(null)}
+          onSaved={(updatedCode) => {
+            setLevels((prev) => prev.map((l) => (l.id === editingLevel.id ? { ...l, code: updatedCode } : l)));
+            setEditingLevel(null);
+          }}
+        />
+      )}
     </Card>
+  );
+}
+
+function EditLevelCodeDialog({
+  level,
+  onClose,
+  onSaved,
+}: {
+  level: AcademicLevel;
+  onClose: () => void;
+  onSaved: (code: string | null) => void;
+}) {
+  const [code, setCode] = useState(level.code ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    const result = await updateAcademicLevel(level.id, { code });
+    setBusy(false);
+    if (result.success) {
+      onSaved(code.trim().toUpperCase() || null);
+    } else {
+      setError(result.error);
+    }
+  }
+
+  return (
+    <Dialog open onClose={onClose} title={`Code for ${level.name}`}>
+      <form onSubmit={submit} className="space-y-4">
+        {error && <Alert variant="error">{error}</Alert>}
+        <div>
+          <Label htmlFor="edit-level-code">Code</Label>
+          <Input id="edit-level-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="PRI" maxLength={20} />
+          <p className="mt-1 text-xs text-ink-500">Used in student IDs for this level, e.g. ZIVA/PRI/26/0001.</p>
+        </div>
+        <Button type="submit" disabled={busy} className="w-full">
+          {busy ? "Saving..." : "Save code"}
+        </Button>
+      </form>
+    </Dialog>
   );
 }
 

@@ -113,14 +113,16 @@ function AddTeacherDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [employeeNumber, setEmployeeNumber] = useState("");
   const [qualification, setQualification] = useState("");
   const [specialization, setSpecialization] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<{ email: string; tempPassword: string; loginId: string | null } | null>(
-    null
-  );
+  const [created, setCreated] = useState<{
+    email: string;
+    tempPassword: string;
+    loginId: string | null;
+    employeeNumber: string;
+  } | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -131,13 +133,17 @@ function AddTeacherDialog({ open, onClose }: { open: boolean; onClose: () => voi
       last_name: lastName,
       email,
       phone,
-      employee_number: employeeNumber,
       qualification,
       specialization,
     });
     setBusy(false);
     if (result.success) {
-      setCreated({ email, tempPassword: result.data.tempPassword, loginId: result.data.loginId });
+      setCreated({
+        email,
+        tempPassword: result.data.tempPassword,
+        loginId: result.data.loginId,
+        employeeNumber: result.data.employeeNumber,
+      });
     } else {
       setError(result.error);
     }
@@ -158,6 +164,7 @@ function AddTeacherDialog({ open, onClose }: { open: boolean; onClose: () => voi
             Their password is their phone number — share these credentials securely.
           </Alert>
           <div className="rounded border border-gray-300 bg-surface p-3 font-mono text-sm">
+            <p>Teacher ID: {created.employeeNumber}</p>
             {created.loginId ? (
               <p>Login ID: {created.loginId}</p>
             ) : (
@@ -208,24 +215,18 @@ function AddTeacherDialog({ open, onClose }: { open: boolean; onClose: () => voi
           <Input id="t-phone" value={phone} onChange={(e) => setPhone(e.target.value)} required minLength={6} />
           <p className="mt-1 text-xs text-ink-500">This becomes the teacher&apos;s login password.</p>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="t-employee">Employee number</Label>
-            <Input
-              id="t-employee"
-              value={employeeNumber}
-              onChange={(e) => setEmployeeNumber(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="t-specialization">Specialization</Label>
-            <Input
-              id="t-specialization"
-              value={specialization}
-              onChange={(e) => setSpecialization(e.target.value)}
-              placeholder="Mathematics"
-            />
-          </div>
+        <div>
+          <Label htmlFor="t-specialization">Specialization</Label>
+          <Input
+            id="t-specialization"
+            value={specialization}
+            onChange={(e) => setSpecialization(e.target.value)}
+            placeholder="Mathematics"
+            required
+          />
+          <p className="mt-1 text-xs text-ink-500">
+            Required — used to generate this teacher&apos;s ID (e.g. Mathematics → ZIVA/MATHEMATICS/26/0001).
+          </p>
         </div>
         <div>
           <Label htmlFor="t-qualification">Qualification</Label>

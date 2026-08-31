@@ -6,7 +6,7 @@ import { requireStudent } from "@/lib/auth/require-student";
 import { requireTeacher } from "@/lib/auth/require-teacher";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { nextIdSequence } from "@/lib/synthetic-login";
+import { nextIdSequenceForPrefix, sanitizeIdSegment } from "@/lib/synthetic-login";
 
 export interface StudentListRow {
   id: string;
@@ -117,18 +117,14 @@ export async function listStudents(): Promise<StudentListRow[]> {
   });
 }
 
-function generateStudentNumber(sequence: number) {
-  const year = new Date().getFullYear();
-  return `ZIVA-${year}-${String(sequence).padStart(4, "0")}`;
-}
-
 // Synthetic login email derived from the Student ID. Students never see or
 // use this — it exists purely because Supabase Auth requires an email-shaped
 // identifier internally; the login page collects a Student ID + password and
 // resolves it to this address server-side (see resolveStudentLoginEmail in
-// auth-lookup.ts).
+// auth-lookup.ts). "/" isn't valid in an email local-part, so it's swapped
+// for "-" here only — the displayed/typed ID itself keeps its "/".
 function synthEmailForStudentNumber(studentNumber: string) {
-  return `${studentNumber.toLowerCase()}@ziva-classes.internal`;
+  return `${studentNumber.toLowerCase().replace(/\//g, "-")}@ziva-classes.internal`;
 }
 
 // A student's own login is an optional extra only for JHS/SHS students —
@@ -159,11 +155,31 @@ export async function createStudent(input: {
     if (!input.first_name || !input.last_name) {
       return { success: false, error: "First name and last name are required." };
     }
+    if (!input.class_id || !input.academic_year_id) {
+      return { success: false, error: "A class is required — the student's ID is generated from their level." };
+    }
 
     const admin = createAdminClient();
 
-    const sequence = await nextIdSequence(admin, "student_profiles", "student_number", organizationId);
-    const studentNumber = generateStudentNumber(sequence);
+    // The ID (ZIVA/{levelCode}/{yy}/{seq}) needs the class's level resolved
+    // up front, before the student row can be inserted — unlike the old
+    // flat sequence, which didn't care about level and could be generated
+    // before enrollment.
+    const { data: cls } = await admin
+      .from("classes")
+      .select("academic_levels(name, code)")
+      .eq("id", input.class_id)
+      .single();
+    type LevelRaw = { name: string; code: string | null };
+    const levelRaw = (cls as { academic_levels: LevelRaw | LevelRaw[] | null } | null)?.academic_levels;
+    const level = Array.isArray(levelRaw) ? levelRaw[0] : levelRaw;
+    if (!level) return { success: false, error: "That class has no academic level set — cannot generate an ID." };
+
+    const levelCode = level.code?.trim() || sanitizeIdSegment(level.name);
+    const yy = String(new Date().getFullYear()).slice(-2);
+    const prefix = `ZIVA/${levelCode}/${yy}/`;
+    const sequence = await nextIdSequenceForPrefix(admin, "student_profiles", "student_number", organizationId, prefix);
+    const studentNumber = `${prefix}${String(sequence).padStart(4, "0")}`;
 
     const { data: inserted, error } = await admin
       .from("student_profiles")
@@ -192,45 +208,33 @@ export async function createStudent(input: {
 
     const studentId = (inserted as { id: string }).id;
 
+    const { error: enrollError } = await admin.from("student_enrollments").insert({
+      student_id: studentId,
+      class_id: input.class_id,
+      academic_year_id: input.academic_year_id,
+      status: "ACTIVE",
+    });
+    if (enrollError) {
+      return {
+        success: false,
+        error: `Student created, but enrollment failed: ${enrollError.message}`,
+      };
+    }
+
     let tempPassword: string | null = null;
-
-    if (input.class_id && input.academic_year_id) {
-      const { error: enrollError } = await admin.from("student_enrollments").insert({
-        student_id: studentId,
-        class_id: input.class_id,
-        academic_year_id: input.academic_year_id,
-        status: "ACTIVE",
-      });
-      if (enrollError) {
-        return {
-          success: false,
-          error: `Student created, but enrollment failed: ${enrollError.message}`,
-        };
-      }
-
-      const { data: cls } = await admin
-        .from("classes")
-        .select("academic_levels(name)")
-        .eq("id", input.class_id)
-        .single();
-      const levelRaw = (cls as { academic_levels: { name: string } | { name: string }[] | null } | null)
-        ?.academic_levels;
-      const levelName = Array.isArray(levelRaw) ? levelRaw[0]?.name : levelRaw?.name;
-
-      if (isJhsOrShsLevel(levelName)) {
-        const login = await provisionStudentLogin(
-          admin,
-          studentId,
-          organizationId,
-          studentNumber,
-          input.first_name,
-          input.last_name
-        );
-        if (login.success) tempPassword = login.data.tempPassword;
-        // A login failure here isn't fatal — the student profile and
-        // enrollment are already saved; admin can still provision the login
-        // later from the student's Account tab (same eligibility check).
-      }
+    if (isJhsOrShsLevel(level.name)) {
+      const login = await provisionStudentLogin(
+        admin,
+        studentId,
+        organizationId,
+        studentNumber,
+        input.first_name,
+        input.last_name
+      );
+      if (login.success) tempPassword = login.data.tempPassword;
+      // A login failure here isn't fatal — the student profile and
+      // enrollment are already saved; admin can still provision the login
+      // later from the student's Account tab (same eligibility check).
     }
 
     revalidatePath("/admin/students");

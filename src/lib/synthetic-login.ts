@@ -48,3 +48,39 @@ export async function nextIdSequence(
   }
   return max + 1;
 }
+
+// Same idea as nextIdSequence, but scoped to a specific prefix (e.g.
+// "ZIVA/PRI/26/") rather than the whole org/table — needed once IDs are
+// structured per level/year, where a global max-suffix scan would collide
+// across different level/year buckets that happen to share a numeric tail.
+export async function nextIdSequenceForPrefix(
+  admin: SupabaseClient,
+  table: string,
+  column: string,
+  organizationId: string,
+  prefix: string
+): Promise<number> {
+  const { data } = await admin
+    .from(table)
+    .select(column)
+    .eq("organization_id", organizationId)
+    .ilike(column, `${prefix}%`);
+
+  let max = 0;
+  for (const row of (data as unknown as Record<string, string>[]) ?? []) {
+    const value = row[column];
+    if (!value) continue;
+    const suffix = value.slice(prefix.length);
+    const n = parseInt(suffix, 10);
+    if (!Number.isNaN(n)) max = Math.max(max, n);
+  }
+  return max + 1;
+}
+
+// Uppercases and strips everything but letters/digits — used to turn a
+// free-typed level name or teacher specialization into an ID-safe code
+// segment (e.g. "Junior High" -> "JUNIORHIGH") when no explicit short code
+// has been set.
+export function sanitizeIdSegment(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}

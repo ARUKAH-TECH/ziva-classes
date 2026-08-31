@@ -112,14 +112,15 @@ async function resolveParentPasswordlessLogin(loginId: string): Promise<Password
 // their linked parent's phone number; see students.ts) mirrored in plain
 // text into users.current_password purely so it can be looked up here and
 // used to complete the sign-in behind the scenes. Teachers are unaffected —
-// this only resolves for the ZIVA-/PAR- prefixes; TCH- and anything else
-// still goes through the password-protected email/ID form.
+// this only resolves for student (ZIVA-.../ZIVA/...) and parent (PAR-...)
+// IDs; TCH- and anything else still goes through the password-protected
+// email/ID form.
 export async function resolvePasswordlessLoginById(id: string): Promise<PasswordlessCredentials | null> {
   const trimmed = id.trim();
   if (!trimmed) return null;
 
   const upper = trimmed.toUpperCase();
-  if (upper.startsWith("ZIVA-")) return resolveStudentPasswordlessLogin(trimmed);
+  if (upper.startsWith("ZIVA-") || upper.startsWith("ZIVA/")) return resolveStudentPasswordlessLogin(trimmed);
   if (upper.startsWith("PAR-")) return resolveParentPasswordlessLogin(trimmed);
   return null;
 }
@@ -133,7 +134,9 @@ export async function resolveLoginEmailById(id: string): Promise<string | null> 
   if (!trimmed) return null;
 
   const upper = trimmed.toUpperCase();
-  if (upper.startsWith("ZIVA-")) return resolveStudentLoginEmail(trimmed);
+  // "ZIVA-2026-0001" (legacy, already-issued) and "ZIVA/PRI/26/0001"
+  // (current, level-structured) both identify a student.
+  if (upper.startsWith("ZIVA-") || upper.startsWith("ZIVA/")) return resolveStudentLoginEmail(trimmed);
   if (upper.startsWith("TCH-")) return resolveTeacherLoginEmail(trimmed);
   if (upper.startsWith("PAR-")) return resolveParentLoginEmail(trimmed);
 

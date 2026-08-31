@@ -7,13 +7,14 @@ export interface AcademicLevel {
   id: string;
   name: string;
   level_order: number | null;
+  code: string | null;
 }
 
 export async function listAcademicLevels(): Promise<AcademicLevel[]> {
   const { supabase, organizationId } = await requireAdmin();
   const { data } = await supabase
     .from("academic_levels")
-    .select("id, name, level_order")
+    .select("id, name, level_order, code")
     .eq("organization_id", organizationId)
     .order("level_order", { ascending: true });
   return (data as AcademicLevel[]) ?? [];
@@ -22,6 +23,7 @@ export async function listAcademicLevels(): Promise<AcademicLevel[]> {
 export async function createAcademicLevel(input: {
   name: string;
   level_order: number;
+  code: string;
 }): Promise<ActionResult> {
   try {
     const { supabase, organizationId } = await requireAdmin();
@@ -32,6 +34,7 @@ export async function createAcademicLevel(input: {
       organization_id: organizationId,
       name: input.name,
       level_order: input.level_order,
+      code: input.code.trim().toUpperCase() || null,
     });
 
     if (error) {
@@ -40,6 +43,28 @@ export async function createAcademicLevel(input: {
         error: error.code === "23505" ? "A level with this name already exists." : error.message,
       };
     }
+
+    revalidatePath("/admin/settings");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
+  }
+}
+
+// The code drives the level segment of a student's structured ID
+// (ZIVA/{code}/{yy}/{seq}) — editable separately from creation since every
+// level already existed in production before this field did.
+export async function updateAcademicLevel(id: string, input: { code: string }): Promise<ActionResult> {
+  try {
+    const { supabase, organizationId } = await requireAdmin();
+
+    const { error } = await supabase
+      .from("academic_levels")
+      .update({ code: input.code.trim().toUpperCase() || null })
+      .eq("id", id)
+      .eq("organization_id", organizationId);
+
+    if (error) return { success: false, error: error.message };
 
     revalidatePath("/admin/settings");
     return { success: true, data: undefined };
