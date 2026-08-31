@@ -1,12 +1,12 @@
-import { Wallet, Printer } from "lucide-react";
+import { Wallet } from "lucide-react";
 import { listMyChildren } from "@/lib/actions/parent-children";
 import { listStudentCharges } from "@/lib/actions/charges";
 import { listPayments } from "@/lib/actions/payments";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ReceiptViewerButton } from "@/components/domain/receipt-viewer.client";
 
 export default async function ParentFeesPage() {
   const children = await listMyChildren();
@@ -98,11 +98,7 @@ export default async function ParentFeesPage() {
                             <TD className="font-medium text-navy-900">GH₵{p.amount}</TD>
                             <TD>{p.reference ?? "—"}</TD>
                             <TD className="text-right">
-                              <a href={`/api/payments/${p.id}/receipt`} target="_blank" rel="noreferrer">
-                                <Button variant="ghost" size="sm">
-                                  <Printer className="h-4 w-4" /> Receipt
-                                </Button>
-                              </a>
+                              <ReceiptViewerButton paymentId={p.id} />
                             </TD>
                           </TR>
                         ))}

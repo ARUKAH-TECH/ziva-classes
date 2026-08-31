@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Printer, Receipt as ReceiptIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Receipt as ReceiptIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ReceiptViewerButton } from "@/components/domain/receipt-viewer.client";
 import type { AllPaymentRow } from "@/lib/actions/payments";
 
 function formatDateTime(iso: string) {
@@ -81,11 +81,7 @@ export function ReceiptsClient({ payments }: { payments: AllPaymentRow[] }) {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold text-navy-900">GH₵{p.amount}</span>
-                    <a href={`/api/payments/${p.id}/receipt`} target="_blank" rel="noreferrer">
-                      <Button variant="ghost" size="sm">
-                        <Printer className="h-4 w-4" /> Print
-                      </Button>
-                    </a>
+                    <ReceiptViewerButton paymentId={p.id} label="Print" />
                   </div>
                 </div>
               );

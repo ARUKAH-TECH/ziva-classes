@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Wallet, Pencil, Trash2, Printer } from "lucide-react";
+import { Plus, Wallet, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ReceiptViewerButton } from "@/components/domain/receipt-viewer.client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -197,11 +198,7 @@ export function FeesTab({
                           {p.allocations.map((a) => `${a.subject_name}: GH₵${a.amount_allocated}`).join(", ") || "—"}
                         </p>
                       </div>
-                      <a href={`/api/payments/${p.id}/receipt`} target="_blank" rel="noreferrer">
-                        <Button variant="ghost" size="sm">
-                          <Printer className="h-4 w-4" /> Receipt
-                        </Button>
-                      </a>
+                      <ReceiptViewerButton paymentId={p.id} />
                     </div>
                   );
                 })}
