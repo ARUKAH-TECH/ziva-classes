@@ -100,7 +100,7 @@ export async function createParent(input: {
   phone: string;
   occupation: string;
   address: string;
-}): Promise<ActionResult<{ tempPassword: string; loginId: string | null }>> {
+}): Promise<ActionResult<{ tempPassword: string; loginId: string | null; parentId: string }>> {
   try {
     const { organizationId } = await requireAdmin();
 
@@ -155,24 +155,28 @@ export async function createParent(input: {
       };
     }
 
-    const { error: profileError } = await admin.from("parent_profiles").insert({
-      user_id: authUser.user.id,
-      organization_id: organizationId,
-      occupation: input.occupation || null,
-      address: input.address || null,
-      login_id: loginId,
-    });
+    const { data: profile, error: profileError } = await admin
+      .from("parent_profiles")
+      .insert({
+        user_id: authUser.user.id,
+        organization_id: organizationId,
+        occupation: input.occupation || null,
+        address: input.address || null,
+        login_id: loginId,
+      })
+      .select("id")
+      .single();
 
-    if (profileError) {
+    if (profileError || !profile) {
       await admin.auth.admin.deleteUser(authUser.user.id);
       return {
         success: false,
-        error: profileError.code === "23505" ? "That login ID is already in use — try again." : profileError.message,
+        error: profileError?.code === "23505" ? "That login ID is already in use — try again." : profileError?.message ?? "Could not create the parent profile.",
       };
     }
 
     revalidatePath("/admin/parents");
-    return { success: true, data: { tempPassword, loginId } };
+    return { success: true, data: { tempPassword, loginId, parentId: (profile as { id: string }).id } };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }

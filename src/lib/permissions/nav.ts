@@ -20,6 +20,7 @@ import {
   ListChecks,
   NotebookPen,
   MessageSquareWarning,
+  UploadCloud,
 } from "lucide-react";
 import type { UserRole } from "./roles";
 
@@ -30,7 +31,11 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: Record<UserRole, NavItem[]> = {
-  SUPER_ADMIN: adminNav(),
+  // Bulk Import is Super Admin only — see requireSuperAdmin in
+  // src/lib/auth/require-admin.ts and the page-level check in
+  // src/app/admin/bulk-import/page.tsx, which is the real enforcement;
+  // this just keeps regular admins from seeing a dead-end link.
+  SUPER_ADMIN: [...adminNav(), { label: "Bulk Import", href: "/admin/bulk-import", icon: UploadCloud }],
   ADMIN: adminNav(),
   TEACHER: [
     { label: "Dashboard", href: "/teacher/dashboard", icon: LayoutDashboard },

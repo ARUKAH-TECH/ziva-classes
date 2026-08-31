@@ -158,7 +158,7 @@ export async function createTeacher(input: {
   employee_number: string;
   qualification: string;
   specialization: string;
-}): Promise<ActionResult<{ tempPassword: string; loginId: string | null }>> {
+}): Promise<ActionResult<{ tempPassword: string; loginId: string | null; teacherId: string }>> {
   try {
     const { organizationId } = await requireAdmin();
 
@@ -213,25 +213,29 @@ export async function createTeacher(input: {
       };
     }
 
-    const { error: profileError } = await admin.from("teacher_profiles").insert({
-      user_id: authUser.user.id,
-      organization_id: organizationId,
-      employee_number: input.employee_number || null,
-      login_id: loginId,
-      qualification: input.qualification || null,
-      specialization: input.specialization || null,
-    });
+    const { data: profile, error: profileError } = await admin
+      .from("teacher_profiles")
+      .insert({
+        user_id: authUser.user.id,
+        organization_id: organizationId,
+        employee_number: input.employee_number || null,
+        login_id: loginId,
+        qualification: input.qualification || null,
+        specialization: input.specialization || null,
+      })
+      .select("id")
+      .single();
 
-    if (profileError) {
+    if (profileError || !profile) {
       await admin.auth.admin.deleteUser(authUser.user.id);
       return {
         success: false,
-        error: profileError.code === "23505" ? "That login ID is already in use — try again." : profileError.message,
+        error: profileError?.code === "23505" ? "That login ID is already in use — try again." : profileError?.message ?? "Could not create the teacher profile.",
       };
     }
 
     revalidatePath("/admin/teachers");
-    return { success: true, data: { tempPassword, loginId } };
+    return { success: true, data: { tempPassword, loginId, teacherId: (profile as { id: string }).id } };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }
