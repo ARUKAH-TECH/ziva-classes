@@ -58,3 +58,19 @@ export function parsePastedSheet<T = Record<string, string>>(text: string, field
 
   return { rows, matchedHeaders, unmatchedHeaders, missingRequired };
 }
+
+// Matches a pasted "Student" cell (a Student ID or a "First Last" name)
+// against an already-loaded roster — used to paste-fill attendance/scores
+// for a roster that's already in memory, rather than resolving IDs against
+// the database like the admin bulk-import panels do.
+export function matchRosterRow<T extends { student_id: string; student_number: string; first_name: string; last_name: string }>(
+  roster: T[],
+  identifier: string
+): T | undefined {
+  const trimmed = identifier.trim();
+  if (!trimmed) return undefined;
+  const norm = trimmed.toLowerCase();
+  return roster.find(
+    (r) => r.student_number.toLowerCase() === norm || `${r.first_name} ${r.last_name}`.toLowerCase() === norm
+  );
+}

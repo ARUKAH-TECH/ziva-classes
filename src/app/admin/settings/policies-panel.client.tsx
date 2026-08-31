@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,24 @@ import {
   type OrganizationSettings,
 } from "@/lib/actions/organization";
 
+// <input type="datetime-local"> wants "YYYY-MM-DDTHH:mm" in local time, with
+// no timezone/seconds — different from the ISO string (with seconds + Z)
+// stored in settings.lesson_note_deadline, hence the two-way conversion
+// below rather than binding the raw value directly.
+function toLocalInputValue(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromLocalInputValue(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 export function PoliciesPanel({ organization }: { organization: Organization | null }) {
   const [settings, setSettings] = useState<OrganizationSettings>(
     organization?.settings ?? {
@@ -19,6 +38,7 @@ export function PoliciesPanel({ organization }: { organization: Organization | n
       parent_can_edit_photo: false,
       ranking_enabled_default: false,
       currency_symbol: "GHS",
+      lesson_note_deadline: null,
     }
   );
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -72,6 +92,21 @@ export function PoliciesPanel({ organization }: { organization: Organization | n
           >
             <option value="GHS">GH₵ — Ghana Cedi</option>
           </Select>
+        </div>
+
+        <div className="max-w-xs">
+          <Label htmlFor="lesson-note-deadline">Lesson note submission deadline</Label>
+          <Input
+            id="lesson-note-deadline"
+            type="datetime-local"
+            value={toLocalInputValue(settings.lesson_note_deadline)}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, lesson_note_deadline: fromLocalInputValue(e.target.value) }))
+            }
+          />
+          <p className="mt-1 text-xs text-ink-500">
+            Shown to every teacher on their Lesson Notes page. Leave blank to remove the deadline.
+          </p>
         </div>
 
         <Button onClick={save} disabled={submitting}>

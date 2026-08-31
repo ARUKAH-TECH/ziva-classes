@@ -5,9 +5,12 @@ import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StudentAvatar } from "@/components/domain/student-avatar";
 import { saveAttendance, type RosterEntry, type AttendanceStatus, type SessionInfo } from "@/lib/actions/attendance";
+import { parsePastedSheet, matchRosterRow, type ImportField } from "@/lib/bulk-import/parse";
 import { cn } from "@/lib/utils";
 
 const STATUS_OPTIONS: { value: AttendanceStatus; label: string; className: string }[] = [
@@ -16,6 +19,21 @@ const STATUS_OPTIONS: { value: AttendanceStatus; label: string; className: strin
   { value: "LATE", label: "Late", className: "bg-warning text-white border-warning" },
   { value: "EXCUSED", label: "Excused", className: "bg-sky-400 text-white border-sky-400" },
 ];
+
+const PASTE_FIELDS: ImportField[] = [
+  { key: "student", label: "Student", required: true },
+  { key: "status", label: "Status", required: true },
+  { key: "remarks", label: "Remarks" },
+];
+
+function mapAttendanceStatus(value: string): AttendanceStatus | null {
+  const norm = value.trim().toLowerCase();
+  if (norm === "present") return "PRESENT";
+  if (norm === "absent") return "ABSENT";
+  if (norm === "late") return "LATE";
+  if (norm === "excused") return "EXCUSED";
+  return null;
+}
 
 export function TakeAttendance({
   session,
@@ -29,6 +47,9 @@ export function TakeAttendance({
   const [roster, setRoster] = useState(initialRoster);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteResult, setPasteResult] = useState<{ matched: number; unmatched: string[] } | null>(null);
 
   function setStatus(studentId: string, status: AttendanceStatus) {
     setRoster((prev) => prev.map((r) => (r.student_id === studentId ? { ...r, status } : r)));
@@ -36,6 +57,35 @@ export function TakeAttendance({
 
   function markAllPresent() {
     setRoster((prev) => prev.map((r) => ({ ...r, status: r.status ?? "PRESENT" })));
+  }
+
+  function applyPaste() {
+    const parsed = parsePastedSheet<{ student: string; status: string; remarks: string }>(pasteText, PASTE_FIELDS);
+    const unmatched: string[] = [];
+    let matched = 0;
+
+    setRoster((prev) => {
+      const next = [...prev];
+      for (const row of parsed.rows) {
+        if (!row.student.trim()) continue;
+        const entry = matchRosterRow(next, row.student);
+        if (!entry) {
+          unmatched.push(row.student);
+          continue;
+        }
+        const status = mapAttendanceStatus(row.status);
+        if (!status) {
+          unmatched.push(`${row.student} (status "${row.status}" not recognized)`);
+          continue;
+        }
+        const idx = next.findIndex((r) => r.student_id === entry.student_id);
+        next[idx] = { ...next[idx], status, remarks: row.remarks.trim() || next[idx].remarks };
+        matched++;
+      }
+      return next;
+    });
+
+    setPasteResult({ matched, unmatched });
   }
 
   async function save() {
@@ -84,6 +134,40 @@ export function TakeAttendance({
         <StatBox label="Late" value={counts.late} accent="warning" />
         <StatBox label="Excused" value={counts.excused} accent="sky" />
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Paste from spreadsheet</CardTitle>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setPasteOpen((v) => !v)}>
+            {pasteOpen ? "Hide" : "Paste attendance"}
+          </Button>
+        </CardHeader>
+        {pasteOpen && (
+          <CardContent className="space-y-3">
+            <p className="text-sm text-ink-500">
+              Columns: Student (name or Student ID), Status (Present/Absent/Late/Excused), Remarks (optional).
+            </p>
+            <Textarea
+              rows={6}
+              placeholder={"Student\tStatus\tRemarks\nAkosua Boateng\tPresent\t\nKwame Osei\tAbsent\tSick"}
+              value={pasteText}
+              onChange={(e) => {
+                setPasteText(e.target.value);
+                setPasteResult(null);
+              }}
+            />
+            <Button type="button" variant="secondary" onClick={applyPaste} disabled={!pasteText.trim()}>
+              Fill roster from paste
+            </Button>
+            {pasteResult && (
+              <Alert variant={pasteResult.unmatched.length > 0 ? "warning" : "success"}>
+                {pasteResult.matched} row{pasteResult.matched === 1 ? "" : "s"} applied.
+                {pasteResult.unmatched.length > 0 && ` Not matched: ${pasteResult.unmatched.join(", ")}`}
+              </Alert>
+            )}
+          </CardContent>
+        )}
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

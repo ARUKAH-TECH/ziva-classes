@@ -12,6 +12,7 @@ export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
 
 export interface RosterEntry {
   student_id: string;
+  student_number: string;
   first_name: string;
   last_name: string;
   photo_url: string | null;
@@ -98,10 +99,17 @@ export async function getSessionRoster(sessionId: string): Promise<RosterEntry[]
 
   const { data: enrolled } = await supabase
     .from("student_subjects")
-    .select("student_profiles(id, first_name, last_name, passport_photo_path, status)")
+    .select("student_profiles(id, student_number, first_name, last_name, passport_photo_path, status)")
     .eq("class_subject_id", classSubjectId);
 
-  type S = { id: string; first_name: string; last_name: string; passport_photo_path: string | null; status: string };
+  type S = {
+    id: string;
+    student_number: string;
+    first_name: string;
+    last_name: string;
+    passport_photo_path: string | null;
+    status: string;
+  };
   type Raw = { student_profiles: S | S[] | null };
 
   const students = ((enrolled as Raw[]) ?? [])
@@ -124,6 +132,7 @@ export async function getSessionRoster(sessionId: string): Promise<RosterEntry[]
     const existing = attendanceByStudent.get(s.id);
     return {
       student_id: s.id,
+      student_number: s.student_number,
       first_name: s.first_name,
       last_name: s.last_name,
       photo_url: photoUrls[i],

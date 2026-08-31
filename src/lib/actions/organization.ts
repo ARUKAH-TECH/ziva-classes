@@ -9,6 +9,9 @@ export interface OrganizationSettings {
   parent_can_edit_photo: boolean;
   ranking_enabled_default: boolean;
   currency_symbol: string;
+  // ISO datetime string, or null when no deadline is set. Set by the admin
+  // in Settings and shown to teachers on the Lesson Notes page.
+  lesson_note_deadline: string | null;
 }
 
 export interface Organization {
@@ -28,6 +31,7 @@ const DEFAULT_SETTINGS: OrganizationSettings = {
   parent_can_edit_photo: false,
   ranking_enabled_default: false,
   currency_symbol: "GHS",
+  lesson_note_deadline: null,
 };
 
 // Any authenticated org member (admin, teacher, parent, student) can read
