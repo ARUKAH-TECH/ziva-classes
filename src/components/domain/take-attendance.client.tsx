@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check } from "lucide-react";
+import * as XLSX from "xlsx";
+import { ArrowLeft, Check, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
@@ -50,6 +51,9 @@ export function TakeAttendance({
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [pasteResult, setPasteResult] = useState<{ matched: number; unmatched: string[] } | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function setStatus(studentId: string, status: AttendanceStatus) {
     setRoster((prev) => prev.map((r) => (r.student_id === studentId ? { ...r, status } : r)));
@@ -59,8 +63,32 @@ export function TakeAttendance({
     setRoster((prev) => prev.map((r) => ({ ...r, status: r.status ?? "PRESENT" })));
   }
 
-  function applyPaste() {
-    const parsed = parsePastedSheet<{ student: string; status: string; remarks: string }>(pasteText, PASTE_FIELDS);
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setFileError(null);
+    setFileName(file.name);
+    try {
+      let tsv: string;
+      if (file.name.toLowerCase().endsWith(".csv")) {
+        tsv = await file.text();
+      } else {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        tsv = XLSX.utils.sheet_to_csv(sheet, { FS: "\t" });
+      }
+      setPasteText(tsv);
+      applyPaste(tsv);
+    } catch {
+      setFileError("Could not read that file — make sure it's a valid Excel (.xlsx/.xls) or CSV file.");
+    }
+  }
+
+  function applyPaste(source: string = pasteText) {
+    const parsed = parsePastedSheet<{ student: string; status: string; remarks: string }>(source, PASTE_FIELDS);
     const unmatched: string[] = [];
     let matched = 0;
 
@@ -147,16 +175,31 @@ export function TakeAttendance({
             <p className="text-sm text-ink-500">
               Columns: Student (name or Student ID), Status (Present/Absent/Late/Excused), Remarks (optional).
             </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <UploadCloud className="h-4 w-4" /> Upload Excel or CSV file
+              </Button>
+              {fileName && <span className="text-sm text-ink-500">{fileName}</span>}
+            </div>
+            {fileError && <Alert variant="error">{fileError}</Alert>}
             <Textarea
               rows={6}
               placeholder={"Student\tStatus\tRemarks\nAkosua Boateng\tPresent\t\nKwame Osei\tAbsent\tSick"}
               value={pasteText}
               onChange={(e) => {
                 setPasteText(e.target.value);
+                setFileName(null);
                 setPasteResult(null);
               }}
             />
-            <Button type="button" variant="secondary" onClick={applyPaste} disabled={!pasteText.trim()}>
+            <Button type="button" variant="secondary" onClick={() => applyPaste()} disabled={!pasteText.trim()}>
               Fill roster from paste
             </Button>
             {pasteResult && (

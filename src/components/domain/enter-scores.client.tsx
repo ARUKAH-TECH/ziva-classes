@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check } from "lucide-react";
+import * as XLSX from "xlsx";
+import { ArrowLeft, Check, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,9 @@ export function EnterScores({
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [pasteResult, setPasteResult] = useState<{ matched: number; unmatched: string[] } | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function setScore(studentId: string, value: string) {
     const num = value === "" ? null : Number(value);
@@ -44,8 +48,32 @@ export function EnterScores({
     setRoster((prev) => prev.map((r) => (r.student_id === studentId ? { ...r, teacher_comment: value } : r)));
   }
 
-  function applyPaste() {
-    const parsed = parsePastedSheet<{ student: string; score: string; comment: string }>(pasteText, PASTE_FIELDS);
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setFileError(null);
+    setFileName(file.name);
+    try {
+      let tsv: string;
+      if (file.name.toLowerCase().endsWith(".csv")) {
+        tsv = await file.text();
+      } else {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        tsv = XLSX.utils.sheet_to_csv(sheet, { FS: "\t" });
+      }
+      setPasteText(tsv);
+      applyPaste(tsv);
+    } catch {
+      setFileError("Could not read that file — make sure it's a valid Excel (.xlsx/.xls) or CSV file.");
+    }
+  }
+
+  function applyPaste(source: string = pasteText) {
+    const parsed = parsePastedSheet<{ student: string; score: string; comment: string }>(source, PASTE_FIELDS);
     const unmatched: string[] = [];
     let matched = 0;
 
@@ -131,16 +159,31 @@ export function EnterScores({
             <p className="text-sm text-ink-500">
               Columns: Student (name or Student ID), Score (0-{assessment.maximum_score}), Comment (optional).
             </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <UploadCloud className="h-4 w-4" /> Upload Excel or CSV file
+              </Button>
+              {fileName && <span className="text-sm text-ink-500">{fileName}</span>}
+            </div>
+            {fileError && <Alert variant="error">{fileError}</Alert>}
             <Textarea
               rows={6}
               placeholder={"Student\tScore\tComment\nAkosua Boateng\t14\t\nKwame Osei\t11\tGood effort"}
               value={pasteText}
               onChange={(e) => {
                 setPasteText(e.target.value);
+                setFileName(null);
                 setPasteResult(null);
               }}
             />
-            <Button type="button" variant="secondary" onClick={applyPaste} disabled={!pasteText.trim()}>
+            <Button type="button" variant="secondary" onClick={() => applyPaste()} disabled={!pasteText.trim()}>
               Fill roster from paste
             </Button>
             {pasteResult && (
