@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ROLE_HOME_PATH, type UserRole } from "@/lib/permissions/roles";
 import { resolveLoginEmailById, resolvePasswordlessLoginById } from "@/lib/actions/auth-lookup";
 import { ZivaLogo } from "@/components/domain/ziva-logo";
+import { InstallAppButton } from "@/components/domain/install-app-button.client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -254,6 +255,10 @@ export default function LoginPage() {
               Sign up
             </Link>
           </p>
+        </div>
+
+        <div className="mt-6 flex justify-center">
+          <InstallAppButton />
         </div>
 
         <p className="mt-6 text-center text-xs text-ink-500">

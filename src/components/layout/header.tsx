@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Bell, Menu, Search, LogOut, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { InstallAppButton } from "@/components/domain/install-app-button.client";
 import { cn } from "@/lib/utils";
 
 export function Header({
@@ -53,6 +54,8 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-2">
+        <InstallAppButton />
+
         <button
           aria-label="Notifications"
           className="relative rounded p-2 text-navy-900 hover:bg-gray-100"
