@@ -130,7 +130,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="rounded-card border border-gray-300 bg-white p-2.5 shadow-card">
+        <div className="rounded-card border border-gray-300 bg-white p-2 shadow-card">
           <h2 className="mb-0.5 text-base font-semibold text-navy-900">Sign in</h2>
           <p className="mb-1 text-sm text-ink-500">
             Enter your credentials to access your portal.
@@ -149,7 +149,7 @@ export default function LoginPage() {
             </TabsList>
 
             <TabsContent value="email">
-              <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} noValidate className="space-y-1">
+              <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} noValidate className="space-y-0.5">
                 <div>
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -198,7 +198,7 @@ export default function LoginPage() {
             </TabsContent>
 
             <TabsContent value="id">
-              <form onSubmit={idForm.handleSubmit(onIdSubmit)} noValidate className="space-y-1">
+              <form onSubmit={idForm.handleSubmit(onIdSubmit)} noValidate className="space-y-0.5">
                 <div>
                   <Label htmlFor="login-id">Student, Teacher, or Parent ID</Label>
                   <Input
@@ -258,7 +258,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-0.5 flex justify-center">
+        <div className="mt-0 flex justify-center">
           <InstallAppButton />
         </div>
 
