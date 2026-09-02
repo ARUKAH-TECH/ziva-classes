@@ -4,7 +4,23 @@
 
 @layer base {
   body {
-    @apply bg-surface text-ink-900 font-body antialiased;
+    @apply text-ink-900 font-body antialiased;
+    /* Brand wash sampled from the ZIVA logo (navy/royal/gold) — applied as the
+       ambient background everywhere so the interface reads as ZIVA-branded,
+       not generic gray. Kept subtle so white cards stay the readable surface. */
+    /* Tiled ZIVA badge watermark (public/images/ziva-logo-watermark.png — a
+       14%-opacity derivative of the transparent logo, pre-padded so repeats
+       read as scattered marks rather than touching edges) sits under the
+       navy/royal/gold wash so it covers the full page, not just the corners. */
+    background-color: #e3eaf2;
+    background-image:
+      radial-gradient(ellipse 1400px 900px at 105% -10%, rgba(11, 95, 165, 0.55), transparent 68%),
+      radial-gradient(ellipse 1200px 850px at -10% 115%, rgba(184, 135, 60, 0.50), transparent 62%),
+      radial-gradient(ellipse 1100px 600px at 50% -10%, rgba(10, 31, 68, 0.16), transparent 58%),
+      url("/images/ziva-logo-watermark.png");
+    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+    background-size: auto, auto, auto, 168px 168px;
+    background-attachment: fixed;
   }
   h1,
   h2,

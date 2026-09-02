@@ -11,6 +11,7 @@ import { ROLE_HOME_PATH, type UserRole } from "@/lib/permissions/roles";
 import { resolveLoginEmailById, resolvePasswordlessLoginById } from "@/lib/actions/auth-lookup";
 import { ZivaLogo } from "@/components/domain/ziva-logo";
 import { InstallAppButton } from "@/components/domain/install-app-button.client";
+import { AppFooter } from "@/components/domain/app-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -119,36 +120,36 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-surface px-4">
+    <main className="flex min-h-screen items-center justify-center px-4 py-1">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <ZivaLogo size={72} />
-          <h1 className="mt-4 text-2xl">ZIVA Online & Special Classes</h1>
-          <p className="mt-1 text-sm font-medium uppercase tracking-wide text-gold-700">
+        <div className="mb-1.5 flex flex-col items-center text-center">
+          <ZivaLogo size={34} />
+          <h1 className="mt-0.5 text-base">ZIVA Online & Special Classes</h1>
+          <p className="mt-0 text-[10px] font-medium uppercase tracking-wide text-gold-700">
             Excellence Our Hallmark
           </p>
         </div>
 
-        <div className="rounded-card border border-gray-300 bg-white p-6 shadow-card">
-          <h2 className="mb-1 text-lg font-semibold text-navy-900">Sign in</h2>
-          <p className="mb-5 text-sm text-ink-500">
+        <div className="rounded-card border border-gray-300 bg-white p-3 shadow-card">
+          <h2 className="mb-0.5 text-base font-semibold text-navy-900">Sign in</h2>
+          <p className="mb-1.5 text-sm text-ink-500">
             Enter your credentials to access your portal.
           </p>
 
           {serverError && (
-            <Alert variant="error" className="mb-4">
+            <Alert variant="error" className="mb-2">
               {serverError}
             </Alert>
           )}
 
           <Tabs defaultValue="email">
-            <TabsList className="mb-5">
+            <TabsList className="mb-1.5">
               <TabsTrigger value="email">Email</TabsTrigger>
               <TabsTrigger value="id">ID</TabsTrigger>
             </TabsList>
 
             <TabsContent value="email">
-              <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} noValidate className="space-y-4">
+              <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} noValidate className="space-y-1.5">
                 <div>
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -184,7 +185,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setForgotOpen(true)}
-                    className="mt-1.5 text-sm text-royal-600 hover:underline"
+                    className="mt-1 text-sm text-royal-600 hover:underline"
                   >
                     Forgot password?
                   </button>
@@ -197,7 +198,7 @@ export default function LoginPage() {
             </TabsContent>
 
             <TabsContent value="id">
-              <form onSubmit={idForm.handleSubmit(onIdSubmit)} noValidate className="space-y-4">
+              <form onSubmit={idForm.handleSubmit(onIdSubmit)} noValidate className="space-y-1.5">
                 <div>
                   <Label htmlFor="login-id">Student, Teacher, or Parent ID</Label>
                   <Input
@@ -236,7 +237,7 @@ export default function LoginPage() {
                         {idForm.formState.errors.password.message}
                       </p>
                     )}
-                    <p className="mt-1.5 text-sm text-ink-500">
+                    <p className="mt-1 text-xs text-ink-500">
                       Lost your password? Ask your school admin to reset it.
                     </p>
                   </div>
@@ -249,7 +250,7 @@ export default function LoginPage() {
             </TabsContent>
           </Tabs>
 
-          <p className="mt-4 text-center text-sm text-ink-500">
+          <p className="mt-1.5 text-center text-sm text-ink-500">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="text-royal-600 hover:underline">
               Sign up
@@ -257,13 +258,14 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-6 flex justify-center">
+        <div className="mt-1 flex justify-center">
           <InstallAppButton />
         </div>
 
-        <p className="mt-6 text-center text-xs text-ink-500">
+        <p className="mt-1 text-center text-xs text-ink-500">
           ZIVA Online &amp; Special Classes &middot; EST. 2023
         </p>
+        <AppFooter className="mt-0.5 py-0" />
       </div>
 
       <ForgotPasswordDialog open={forgotOpen} onClose={() => setForgotOpen(false)} />

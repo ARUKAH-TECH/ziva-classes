@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import { ZivaLogo } from "@/components/domain/ziva-logo";
+import { AppFooter } from "@/components/domain/app-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -100,35 +101,35 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-surface px-4">
+    <main className="flex min-h-screen items-center justify-center px-4 py-1">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <ZivaLogo size={72} />
-          <h1 className="mt-4 text-2xl">ZIVA Online &amp; Special Classes</h1>
+        <div className="mb-1.5 flex flex-col items-center text-center">
+          <ZivaLogo size={34} />
+          <h1 className="mt-0.5 text-base">ZIVA Online &amp; Special Classes</h1>
         </div>
 
-        <div className="rounded-card border border-gray-300 bg-white p-6 shadow-card">
-          <h2 className="mb-1 text-lg font-semibold text-navy-900">Set a new password</h2>
+        <div className="rounded-card border border-gray-300 bg-white p-3 shadow-card">
+          <h2 className="mb-0.5 text-base font-semibold text-navy-900">Set a new password</h2>
 
           {done ? (
-            <Alert variant="success" className="mt-4">
+            <Alert variant="success" className="mt-2">
               Password updated. Redirecting you to sign in...
             </Alert>
           ) : checking ? (
-            <p className="mt-4 text-sm text-ink-500">Verifying your reset link...</p>
+            <p className="mt-2 text-sm text-ink-500">Verifying your reset link...</p>
           ) : !ready ? (
-            <Alert variant="error" className="mt-4">
+            <Alert variant="error" className="mt-2">
               This reset link is invalid or has expired. Request a new one from the sign-in page.
             </Alert>
           ) : (
             <>
-              <p className="mb-5 text-sm text-ink-500">Choose a new password for your account.</p>
+              <p className="mb-2 text-sm text-ink-500">Choose a new password for your account.</p>
               {serverError && (
-                <Alert variant="error" className="mb-4">
+                <Alert variant="error" className="mb-2">
                   {serverError}
                 </Alert>
               )}
-              <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+              <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-1.5">
                 <div>
                   <Label htmlFor="password">New password</Label>
                   <Input
@@ -162,6 +163,7 @@ export default function ResetPasswordPage() {
             </>
           )}
         </div>
+        <AppFooter className="mt-1.5 py-0" />
       </div>
     </main>
   );
