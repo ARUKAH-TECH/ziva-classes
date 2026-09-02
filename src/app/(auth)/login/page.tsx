@@ -120,9 +120,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-1">
+    <main className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-1.5 flex flex-col items-center text-center">
+        <div className="mb-1 flex flex-col items-center text-center">
           <ZivaLogo size={34} />
           <h1 className="mt-0.5 text-base">ZIVA Online & Special Classes</h1>
           <p className="mt-0 text-[10px] font-medium uppercase tracking-wide text-gold-700">
@@ -130,9 +130,9 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="rounded-card border border-gray-300 bg-white p-3 shadow-card">
+        <div className="rounded-card border border-gray-300 bg-white p-2.5 shadow-card">
           <h2 className="mb-0.5 text-base font-semibold text-navy-900">Sign in</h2>
-          <p className="mb-1.5 text-sm text-ink-500">
+          <p className="mb-1 text-sm text-ink-500">
             Enter your credentials to access your portal.
           </p>
 
@@ -143,13 +143,13 @@ export default function LoginPage() {
           )}
 
           <Tabs defaultValue="email">
-            <TabsList className="mb-1.5">
+            <TabsList className="mb-1">
               <TabsTrigger value="email">Email</TabsTrigger>
               <TabsTrigger value="id">ID</TabsTrigger>
             </TabsList>
 
             <TabsContent value="email">
-              <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} noValidate className="space-y-1.5">
+              <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} noValidate className="space-y-1">
                 <div>
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -198,7 +198,7 @@ export default function LoginPage() {
             </TabsContent>
 
             <TabsContent value="id">
-              <form onSubmit={idForm.handleSubmit(onIdSubmit)} noValidate className="space-y-1.5">
+              <form onSubmit={idForm.handleSubmit(onIdSubmit)} noValidate className="space-y-1">
                 <div>
                   <Label htmlFor="login-id">Student, Teacher, or Parent ID</Label>
                   <Input
@@ -250,7 +250,7 @@ export default function LoginPage() {
             </TabsContent>
           </Tabs>
 
-          <p className="mt-1.5 text-center text-sm text-ink-500">
+          <p className="mt-1 text-center text-sm text-ink-500">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="text-royal-600 hover:underline">
               Sign up
@@ -258,11 +258,11 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-1 flex justify-center">
+        <div className="mt-0.5 flex justify-center">
           <InstallAppButton />
         </div>
 
-        <p className="mt-1 text-center text-xs text-ink-500">
+        <p className="mt-0.5 text-center text-xs text-ink-500">
           ZIVA Online &amp; Special Classes &middot; EST. 2023
         </p>
         <AppFooter className="mt-0.5 py-0" />
