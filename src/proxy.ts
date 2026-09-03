@@ -15,7 +15,7 @@ const PUBLIC_PATHS = ["/login", "/register"];
 // can set a new password.
 const ALWAYS_ACCESSIBLE_PATHS = ["/reset-password"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

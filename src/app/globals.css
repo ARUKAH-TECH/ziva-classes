@@ -1,6 +1,44 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* ZIVA brand tokens — sampled from the official logo (public/images/ziva-logo-original.jpg)
+   Blue + white must dominate; gold stays a premium accent, never a status color.
+   Migrated from tailwind.config.ts (Tailwind v3) to CSS-first @theme (Tailwind v4). */
+@theme {
+  --color-navy-900: #0a1f44; /* sidebar, header, primary headings */
+  --color-navy-700: #123163;
+
+  --color-royal-600: #0b5fa5; /* primary buttons, active nav, links */
+  --color-royal-500: #1471be;
+
+  --color-sky-400: #2b93d1; /* info states, charts, secondary highlights */
+  --color-sky-300: #5fb0de;
+
+  --color-gold-700: #8f630f; /* darkened for WCAG AA text contrast (4.5:1+ on white) — use for gold text/labels */
+  --color-gold-500: #b8873c; /* premium accent only — stats, dividers, report accents, badge backgrounds (not for small text) */
+  --color-gold-100: #f1e4c8;
+
+  --color-surface: #f7f8fa;
+  --color-gray-100: #eef1f4;
+  --color-gray-300: #dce1e8;
+
+  --color-ink-900: #101828; /* body text */
+  --color-ink-500: #5b6472; /* metadata/secondary text */
+
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-error: #dc2626;
+
+  --font-heading: var(--font-poppins), sans-serif;
+  --font-body: var(--font-inter), sans-serif;
+
+  /* v3's borderRadius.DEFAULT (bare `rounded`) — overrides Tailwind v4's
+     deprecated-but-still-generated --radius token so `rounded` keeps
+     matching the original 8px brand value instead of v4's stock 0.25rem. */
+  --radius: 8px;
+  --radius-card: 12px;
+
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
 
 @layer base {
   body {

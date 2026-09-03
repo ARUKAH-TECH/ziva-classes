@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Next 16's `next dev` auto-writes AGENTS.md/CLAUDE.md scaffold files on
+  // every dev-server start. Not something this project wants generated
+  // into the repo root unattended.
+  agentRules: false,
   images: {
     remotePatterns: [
       {
