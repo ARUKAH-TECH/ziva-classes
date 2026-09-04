@@ -27,11 +27,15 @@ import * as cheerio from "cheerio";
 import { createClient } from "@supabase/supabase-js";
 
 // ------------------------------------------------------------------
-// .env.local loading (standalone script — Next.js's own env loading
-// doesn't apply outside the Next runtime)
+// Env file loading (standalone script — Next.js's own env loading
+// doesn't apply outside the Next runtime). Defaults to .env.local, but
+// accepts --env=<path> so this can be pointed at a different project
+// (e.g. a git-ignored .env.production.local) without touching the
+// local-dev .env.local or ever passing secrets on the command line.
 // ------------------------------------------------------------------
 function loadEnvLocal() {
-  const envPath = path.join(process.cwd(), ".env.local");
+  const envArg = process.argv.find((a) => a.startsWith("--env="));
+  const envPath = path.join(process.cwd(), envArg ? envArg.slice("--env=".length) : ".env.local");
   if (!fs.existsSync(envPath)) return;
   const text = fs.readFileSync(envPath, "utf8");
   for (const line of text.split("\n")) {
