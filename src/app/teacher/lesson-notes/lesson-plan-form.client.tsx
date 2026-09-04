@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import type { LessonNoteInput } from "@/lib/actions/lesson-notes";
 import type { MyClassSubjectOption } from "@/lib/actions/assessments";
 import type { Term } from "@/lib/actions/terms";
+import { listLibraryOptionsForClassSubject, getLibraryEntry, type LibraryListRow } from "@/lib/actions/lesson-plan-library";
 
 const DAY_OPTIONS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -67,8 +68,57 @@ export function LessonPlanForm({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"submit" | "draft" | null>(null);
 
+  const [libraryOptions, setLibraryOptions] = useState<LibraryListRow[]>([]);
+  const [selectedLibraryId, setSelectedLibraryId] = useState("");
+  const [libraryLoading, setLibraryLoading] = useState(false);
+
   function set<K extends keyof LessonNoteInput>(key: K, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }));
+  }
+
+  // Re-fetch reference library options whenever the teacher changes which
+  // class/subject or term they're writing this note for.
+  useEffect(() => {
+    setSelectedLibraryId("");
+    if (!values.class_subject_id || !values.term_id) {
+      setLibraryOptions([]);
+      return;
+    }
+    let cancelled = false;
+    listLibraryOptionsForClassSubject(values.class_subject_id, values.term_id).then((options) => {
+      if (!cancelled) setLibraryOptions(options);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [values.class_subject_id, values.term_id]);
+
+  async function applyLibraryEntry(libraryId: string) {
+    setSelectedLibraryId(libraryId);
+    if (!libraryId) return;
+    setLibraryLoading(true);
+    const entry = await getLibraryEntry(libraryId);
+    setLibraryLoading(false);
+    if (!entry) return;
+
+    setValues((prev) => ({
+      ...prev,
+      week_number: entry.week_number ? String(entry.week_number) : prev.week_number,
+      week_ending: entry.week_ending ?? prev.week_ending,
+      strand: entry.strand ?? prev.strand,
+      sub_strand: entry.sub_strand ?? prev.sub_strand,
+      indicator: entry.indicator ?? prev.indicator,
+      content_standard: entry.content_standard ?? prev.content_standard,
+      performance_indicator: entry.performance_indicator ?? prev.performance_indicator,
+      core_competencies: entry.core_competencies ?? prev.core_competencies,
+      keywords: entry.keywords ?? prev.keywords,
+      teaching_learning_resources: entry.teaching_learning_resources ?? prev.teaching_learning_resources,
+      reference: entry.reference ?? prev.reference,
+      phase1_starter: entry.phase1_starter ?? prev.phase1_starter,
+      phase2_main: entry.phase2_main ?? prev.phase2_main,
+      phase3_reflection: entry.phase3_reflection ?? prev.phase3_reflection,
+      remarks: entry.remarks ?? prev.remarks,
+    }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -121,6 +171,31 @@ export function LessonPlanForm({
           </Select>
         </div>
       </div>
+
+      {libraryOptions.length > 0 && (
+        <div className="rounded-card border border-gold-300 bg-gold-50 p-3">
+          <Label htmlFor="lp-library">Load from reference library (optional)</Label>
+          <Select
+            id="lp-library"
+            value={selectedLibraryId}
+            onChange={(e) => applyLibraryEntry(e.target.value)}
+            disabled={libraryLoading}
+          >
+            <option value="">— Start from a blank note —</option>
+            {libraryOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.week_number ? `Week ${o.week_number} — ` : ""}
+                {o.topic || "Untitled"}
+              </option>
+            ))}
+          </Select>
+          <p className="mt-1 text-xs text-ink-500">
+            {libraryLoading
+              ? "Loading..."
+              : "Fills in the GES fields below from admin-approved reference content — everything stays editable before you submit."}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div>

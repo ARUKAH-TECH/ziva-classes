@@ -92,6 +92,7 @@ function adminNav(): NavItem[] {
     { label: "Results", href: "/admin/results", icon: Award },
     { label: "Terminal Reports", href: "/admin/terminal-reports", icon: FileText },
     { label: "Lesson Notes", href: "/admin/lesson-notes", icon: NotebookPen },
+    { label: "Lesson Plan Library", href: "/admin/lesson-plan-library", icon: BookOpen },
     { label: "Parent Feedback", href: "/admin/teacher-feedback", icon: MessageSquareWarning },
     { label: "Fees & Payments", href: "/admin/fees", icon: Wallet },
     { label: "Receipts", href: "/admin/receipts", icon: Receipt },
