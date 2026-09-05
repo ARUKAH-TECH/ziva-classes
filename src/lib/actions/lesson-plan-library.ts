@@ -184,6 +184,32 @@ export async function reviewLibraryEntry(id: string, status: LibraryReviewStatus
   }
 }
 
+// One click approves every still-pending entry in a whole term — every
+// subject and class at once — instead of an admin working through entries
+// one at a time. Only touches rows still PENDING_REVIEW, so it never
+// reopens something an admin already rejected.
+export async function approveAllPendingInTerm(termNumber: number): Promise<ActionResult<{ approved: number }>> {
+  try {
+    const { supabase, organizationId, userId } = await requireAdmin();
+
+    const { data, error } = await supabase
+      .from("lesson_plan_library")
+      .update({ review_status: "APPROVED", reviewed_by: userId, reviewed_at: new Date().toISOString() })
+      .eq("organization_id", organizationId)
+      .eq("term_number", termNumber)
+      .eq("review_status", "PENDING_REVIEW")
+      .select("id");
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/admin/lesson-plan-library");
+    revalidatePath("/teacher/lesson-notes");
+    return { success: true, data: { approved: data?.length ?? 0 } };
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
+  }
+}
+
 // Resolves a short-lived signed URL for the original source document.
 // Uses the caller's own session — storage RLS (004_lesson_plan_library_storage.sql)
 // decides whether they're actually allowed to see this particular file.
