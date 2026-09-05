@@ -11,6 +11,7 @@ import type { LessonNoteInput } from "@/lib/actions/lesson-notes";
 import type { MyClassSubjectOption } from "@/lib/actions/assessments";
 import type { Term } from "@/lib/actions/terms";
 import { listLibraryOptionsForClassSubject, getLibraryEntry, type LibraryListRow } from "@/lib/actions/lesson-plan-library";
+import { splitByDay, pickDayContent, extractIndicatorCodes, type DayContentMap } from "@/lib/lesson-plan-day-content";
 
 const DAY_OPTIONS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -71,6 +72,22 @@ export function LessonPlanForm({
   const [libraryOptions, setLibraryOptions] = useState<LibraryListRow[]>([]);
   const [selectedLibraryId, setSelectedLibraryId] = useState("");
   const [libraryLoading, setLibraryLoading] = useState(false);
+  const [indicatorOptions, setIndicatorOptions] = useState<string[]>([]);
+
+  // Raw (un-filtered, whole-week) phase text and its per-day breakdown for
+  // the currently loaded library entry — kept separately from `values` so
+  // switching the Day field can re-derive just that day's slice without
+  // re-fetching the entry, and can revert to the full week if Day is cleared.
+  const [libraryPhaseRaw, setLibraryPhaseRaw] = useState<{
+    phase1: string | null;
+    phase2: string | null;
+    phase3: string | null;
+  } | null>(null);
+  const [libraryPhaseByDay, setLibraryPhaseByDay] = useState<{
+    phase1: DayContentMap | null;
+    phase2: DayContentMap | null;
+    phase3: DayContentMap | null;
+  } | null>(null);
 
   function set<K extends keyof LessonNoteInput>(key: K, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -80,6 +97,9 @@ export function LessonPlanForm({
   // class/subject or term they're writing this note for.
   useEffect(() => {
     setSelectedLibraryId("");
+    setIndicatorOptions([]);
+    setLibraryPhaseRaw(null);
+    setLibraryPhaseByDay(null);
     if (!values.class_subject_id || !values.term_id) {
       setLibraryOptions([]);
       return;
@@ -93,13 +113,48 @@ export function LessonPlanForm({
     };
   }, [values.class_subject_id, values.term_id]);
 
+  // Once a library entry is loaded, changing Day re-slices its phase text
+  // to that single day (leaving the other days out) instead of requiring
+  // the entry to be reloaded — and reverts to the full week if Day is cleared.
+  useEffect(() => {
+    if (!libraryPhaseByDay) return;
+    setValues((prev) => ({
+      ...prev,
+      phase1_starter: pickDayContent(libraryPhaseByDay.phase1, prev.day_name, libraryPhaseRaw?.phase1 ?? null),
+      phase2_main: pickDayContent(libraryPhaseByDay.phase2, prev.day_name, libraryPhaseRaw?.phase2 ?? null),
+      phase3_reflection: pickDayContent(libraryPhaseByDay.phase3, prev.day_name, libraryPhaseRaw?.phase3 ?? null),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.day_name, libraryPhaseByDay]);
+
   async function applyLibraryEntry(libraryId: string) {
     setSelectedLibraryId(libraryId);
-    if (!libraryId) return;
+    if (!libraryId) {
+      setIndicatorOptions([]);
+      setLibraryPhaseRaw(null);
+      setLibraryPhaseByDay(null);
+      return;
+    }
     setLibraryLoading(true);
     const entry = await getLibraryEntry(libraryId);
     setLibraryLoading(false);
     if (!entry) return;
+
+    const phaseRaw = {
+      phase1: entry.phase1_starter,
+      phase2: entry.phase2_main,
+      phase3: entry.phase3_reflection,
+    };
+    const phaseByDay = {
+      phase1: splitByDay(entry.phase1_starter),
+      phase2: splitByDay(entry.phase2_main),
+      phase3: splitByDay(entry.phase3_reflection),
+    };
+    setLibraryPhaseRaw(phaseRaw);
+    setLibraryPhaseByDay(phaseByDay);
+
+    const codes = extractIndicatorCodes(entry.indicator);
+    setIndicatorOptions(codes.length > 1 ? codes : []);
 
     setValues((prev) => ({
       ...prev,
@@ -107,16 +162,16 @@ export function LessonPlanForm({
       week_ending: entry.week_ending ?? prev.week_ending,
       strand: entry.strand ?? prev.strand,
       sub_strand: entry.sub_strand ?? prev.sub_strand,
-      indicator: entry.indicator ?? prev.indicator,
+      indicator: codes.length > 1 ? codes[0] : entry.indicator ?? prev.indicator,
       content_standard: entry.content_standard ?? prev.content_standard,
       performance_indicator: entry.performance_indicator ?? prev.performance_indicator,
       core_competencies: entry.core_competencies ?? prev.core_competencies,
       keywords: entry.keywords ?? prev.keywords,
       teaching_learning_resources: entry.teaching_learning_resources ?? prev.teaching_learning_resources,
       reference: entry.reference ?? prev.reference,
-      phase1_starter: entry.phase1_starter ?? prev.phase1_starter,
-      phase2_main: entry.phase2_main ?? prev.phase2_main,
-      phase3_reflection: entry.phase3_reflection ?? prev.phase3_reflection,
+      phase1_starter: pickDayContent(phaseByDay.phase1, prev.day_name, phaseRaw.phase1),
+      phase2_main: pickDayContent(phaseByDay.phase2, prev.day_name, phaseRaw.phase2),
+      phase3_reflection: pickDayContent(phaseByDay.phase3, prev.day_name, phaseRaw.phase3),
       remarks: entry.remarks ?? prev.remarks,
     }));
   }
@@ -257,13 +312,23 @@ export function LessonPlanForm({
 
       <div>
         <Label htmlFor="lp-indicator">Indicator</Label>
-        <Input
-          id="lp-indicator"
-          value={values.indicator}
-          onChange={(e) => set("indicator", e.target.value)}
-          placeholder="e.g. B4.1.1.1.1"
-          required
-        />
+        {indicatorOptions.length > 1 ? (
+          <Select id="lp-indicator" value={values.indicator} onChange={(e) => set("indicator", e.target.value)} required>
+            {indicatorOptions.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </Select>
+        ) : (
+          <Input
+            id="lp-indicator"
+            value={values.indicator}
+            onChange={(e) => set("indicator", e.target.value)}
+            placeholder="e.g. B4.1.1.1.1"
+            required
+          />
+        )}
       </div>
 
       <div>
